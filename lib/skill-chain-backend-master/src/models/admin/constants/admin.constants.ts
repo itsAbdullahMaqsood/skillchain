@@ -1,0 +1,5 @@
+export const ADMIN_JWT_SECRET = 'JWT_SECRET';
+export const ADMIN_JWT_REFRESH_SECRET = 'JWT_REFRESH_SECRET';
+export const ADMIN_JWT_EXPIRES_IN = '15m';
+export const ADMIN_JWT_REFRESH_EXPIRES_IN = '7d';
+
