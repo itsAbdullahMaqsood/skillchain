@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/Pages/home_page.dart';
 import 'package:skillchain/Pages/forgot_password_page.dart';
-import 'package:skillchain/Pages/signup/signup_profile_page.dart';
-import 'package:skillchain/core/config/signup_dev_config.dart';
-import 'package:skillchain/Pages/signup/signup_dev_bypass_page.dart';
 import 'package:skillchain/Pages/signup/signup_email_page.dart';
 import 'package:skillchain/services/auth_service.dart';
 
@@ -313,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const SignupEmailPage(),
-                                  ),
+                                ),
                               );
                             },
                             child: const Text("Don't have an account? Sign up"),
