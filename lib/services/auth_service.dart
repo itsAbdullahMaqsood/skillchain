@@ -268,6 +268,16 @@ class AuthService {
     return await _storage.read(key: _refreshTokenKey);
   }
 
+  /// Persist tokens after signup (or login). Sets API auth header.
+  Future<void> persistAuthTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await _storage.write(key: _accessTokenKey, value: accessToken);
+    await _storage.write(key: _refreshTokenKey, value: refreshToken);
+    _apiService.setAuthToken(accessToken);
+  }
+
   // Initialize auth (check for stored token on app start)
   Future<void> initializeAuth() async {
     final token = await getAccessToken();

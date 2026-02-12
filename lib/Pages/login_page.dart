@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/Pages/home_page.dart';
 import 'package:skillchain/Pages/forgot_password_page.dart';
-import 'package:skillchain/Pages/signup_page.dart';
+import 'package:skillchain/Pages/signup/signup_profile_page.dart';
+import 'package:skillchain/core/config/signup_dev_config.dart';
+import 'package:skillchain/Pages/signup/signup_dev_bypass_page.dart';
+import 'package:skillchain/Pages/signup/signup_email_page.dart';
 import 'package:skillchain/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   bool rememberMe = true;
   bool obscurePassword = true;
   bool _isLoading = false;
@@ -52,9 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Navigate to home screen on successful login
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-          ),
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       } else {
         // Show error message
@@ -220,119 +221,119 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
 
-                      const SizedBox(height: 10),
+                        const SizedBox(height: 10),
 
-                      /// Forgot Password
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ForgotPasswordScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text("Forgot password? Reset it here"),
-                        ),
-                      ),
-
-                      /// Remember Me
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: rememberMe,
-                            onChanged: (value) {
-                              setState(() {
-                                rememberMe = value!;
-                              });
+                        /// Forgot Password
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ForgotPasswordScreen(),
+                                ),
+                              );
                             },
+                            child: const Text("Forgot password? Reset it here"),
                           ),
-                          const Text("Remember me"),
-                        ],
-                      ),
+                        ),
 
-                      const SizedBox(height: 10),
-
-                      /// Sign In Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade600,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        /// Remember Me
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  rememberMe = value!;
+                                });
+                              },
                             ),
-                          ),
-                          onPressed: _isLoading ? null : _handleLogin,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
+                            const Text("Remember me"),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        /// Sign In Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: _isLoading ? null : _handleLogin,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Text(
+                                    "Sign In →",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white,
                                     ),
                                   ),
-                                )
-                              : const Text(
-                                  "Sign In →",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        /// Social Login
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _socialButton('assets/images/google.svg'),
+                            const SizedBox(width: 16),
+                            _socialButton('assets/images/facebook.svg'),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        /// Signup
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SignupEmailPage(),
                                   ),
-                                ),
+                              );
+                            },
+                            child: const Text("Don't have an account? Sign up"),
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 12),
 
-                      /// Social Login
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _socialButton('assets/images/google.svg'),
-                          const SizedBox(width: 16),
-                          _socialButton('assets/images/facebook.svg'),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      /// Signup
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const SignupScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text("Don't have an account? Sign up"),
+                        const Center(
+                          child: Text(
+                            "© 2024 Skill Chain. All rights reserved.",
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      const Center(
-                        child: Text(
-                          "© 2024 Skill Chain. All rights reserved.",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           ],
         ),
       ),

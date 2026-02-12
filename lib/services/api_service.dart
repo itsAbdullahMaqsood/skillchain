@@ -15,8 +15,7 @@ class ApiService {
   // Use your computer's local IP: 'https://192.168.1.100:3001/api'
   //
   // IMPORTANT: After deploying your backend, update this URL and rebuild the APK
-  static const String baseUrl =
-      'https://skill-chain-backend-production.up.railway.app';
+  static const String baseUrl = 'http://13.50.109.48:3001';
 
   late Dio _dio;
 
@@ -116,6 +115,28 @@ class ApiService {
         path,
         data: data,
         queryParameters: queryParameters,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// POST with multipart/form-data (e.g. file uploads). [data] is FormData.
+  Future<Response> postMultipart(
+    String path, {
+    required FormData data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      return await _dio.post(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
       );
     } catch (e) {
       rethrow;
