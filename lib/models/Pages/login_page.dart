@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:skillchain/core/network/api_exception.dart';
-import 'package:skillchain/Pages/forgot_password_page.dart';
 import 'package:skillchain/Pages/home_page.dart';
+import 'package:skillchain/Pages/forgot_password_page.dart';
 import 'package:skillchain/Pages/signup/signup_email_page.dart';
 import 'package:skillchain/services/auth_service.dart';
-import 'package:skillchain/services/login_api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,14 +15,12 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
-  final _loginApi = LoginApiService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool rememberMe = true;
   bool obscurePassword = true;
   bool _isLoading = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -34,35 +30,39 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    _errorMessage = null;
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
 
-    try {
-      final response = await _loginApi.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-      await _authService.persistAuthFromLogin(response);
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    } on ApiException catch (e) {
-      if (!mounted) return;
+    final result = await _authService.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    if (mounted) {
       setState(() {
         _isLoading = false;
-        _errorMessage = e.message;
       });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Something went wrong. Please try again.';
-      });
+
+      if (result['success'] == true) {
+        // Navigate to home screen on successful login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Login failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -166,30 +166,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          autocorrect: false,
                           decoration: InputDecoration(
-                            hintText: "abb@gmail.com",
+                            hintText: "admin@skillchain.com",
                             suffixIcon: const Icon(Icons.email_outlined),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Colors.red),
-                            ),
                           ),
                           validator: (value) {
-                            final s = value?.trim() ?? '';
-                            if (s.isEmpty) return 'Email is required';
-                            if (!RegExp(r'^[\w.-]+@[\w.-]+\.\w+$').hasMatch(s)) {
+                            if (value == null || value.isEmpty) {
+                              return 'Email is required';
+                            }
+                            if (!value.contains('@') || !value.contains('.')) {
                               return 'Please enter a valid email';
                             }
                             return null;
-                          },
-                          onChanged: (_) {
-                            if (_errorMessage != null) {
-                              setState(() => _errorMessage = null);
-                            }
                           },
                         ),
 
@@ -225,23 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                             return null;
                           },
-                          onChanged: (_) {
-                            if (_errorMessage != null) {
-                              setState(() => _errorMessage = null);
-                            }
-                          },
                         ),
-
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _errorMessage!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
 
                         const SizedBox(height: 10),
 

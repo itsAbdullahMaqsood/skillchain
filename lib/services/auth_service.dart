@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:skillchain/models/login_models.dart';
 import 'package:skillchain/services/api_service.dart';
 
 class AuthService {
@@ -278,6 +281,17 @@ class AuthService {
     _apiService.setAuthToken(accessToken);
   }
 
+  /// Persist tokens and user data after login. Sets API auth header.
+  Future<void> persistAuthFromLogin(LoginSuccessResponse response) async {
+    await _storage.write(key: _accessTokenKey, value: response.accessToken);
+    await _storage.write(key: _refreshTokenKey, value: response.refreshToken);
+    await _storage.write(
+      key: _userDataKey,
+      value: jsonEncode(response.user),
+    );
+    _apiService.setAuthToken(response.accessToken);
+  }
+
   // Initialize auth (check for stored token on app start)
   Future<void> initializeAuth() async {
     final token = await getAccessToken();
@@ -286,11 +300,48 @@ class AuthService {
     }
   }
 
-  // Get current user data from storage
+  /// Current user data from storage (set after login via [persistAuthFromLogin]).
   Future<Map<String, dynamic>?> getStoredUserData() async {
-    // Note: This is a simplified version. In production, you'd want to
-    // properly serialize/deserialize the user data
-    // For now, user data should be fetched from the API after login
-    return null;
+    final raw = await _storage.read(key: _userDataKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Refresh access token using refresh token. Call on 401 to re-authenticate.
+  /// Returns new access token or throws. On refresh failure (e.g. expiry), clears tokens (automatic logout).
+  /// Adjust path/body if your backend uses e.g. POST /auth/refresh or different payload.
+  Future<String> refreshAccessToken() async {
+    final refresh = await _storage.read(key: _refreshTokenKey);
+    if (refresh == null || refresh.isEmpty) {
+      await logout();
+      throw Exception('No refresh token');
+    }
+    try {
+      final response = await _apiService.post(
+        '/users/refresh',
+        data: <String, dynamic>{'refreshToken': refresh},
+      );
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      final newAccess = data['accessToken'] as String?;
+      if (newAccess == null || newAccess.isEmpty) {
+        await logout();
+        throw Exception('Invalid refresh response');
+      }
+      await _storage.write(key: _accessTokenKey, value: newAccess);
+      _apiService.setAuthToken(newAccess);
+      return newAccess;
+    } on DioException catch (_) {
+      await logout();
+      rethrow;
+    }
   }
 }
