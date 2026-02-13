@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:skillchain/Pages/home_page.dart';
 import 'package:skillchain/Pages/login_page.dart';
+import 'package:skillchain/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -18,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
     _setupAnimation();
-    _navigateToLogin();
+    _navigateAfterSplash();
   }
 
   void _setupAnimation() {
@@ -34,9 +36,23 @@ class _SplashScreenState extends State<SplashScreen>
     _animationController.forward();
   }
 
-  _navigateToLogin() async {
+  Future<void> _navigateAfterSplash() async {
     await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
+    if (!mounted) return;
+
+    final authService = AuthService();
+    await authService.initializeAuth();
+
+    if (!mounted) return;
+    final isLoggedIn = await authService.isLoggedIn();
+
+    if (!mounted) return;
+    if (isLoggedIn) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),

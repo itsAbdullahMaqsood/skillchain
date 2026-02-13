@@ -1,6 +1,8 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
-import 'dart:io';
+import 'package:skillchain/core/network/auth_interceptor.dart';
 
 class ApiService {
   // PRODUCTION API URL
@@ -17,10 +19,18 @@ class ApiService {
   // IMPORTANT: After deploying your backend, update this URL and rebuild the APK
   static const String baseUrl = 'http://13.50.109.48:3001';
 
-  late Dio _dio;
+  static Dio? _sharedDio;
+  static Dio get _dio {
+    _sharedDio ??= _createDio();
+    return _sharedDio!;
+  }
 
   ApiService() {
-    _dio = Dio(
+    // Use shared Dio so all instances share the same interceptor and auth state
+  }
+
+  static Dio _createDio() {
+    final dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
         connectTimeout: const Duration(seconds: 30),
@@ -32,32 +42,24 @@ class ApiService {
       ),
     );
 
-    // Add interceptors
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          // Add token to headers if available
-          // This will be handled by AuthService
-          handler.next(options);
-        },
-        onError: (error, handler) {
-          // Handle errors globally
-          handler.next(error);
-        },
-      ),
-    );
+    dio.interceptors.add(AuthInterceptor(dio: dio));
 
     // Handle SSL certificate issues for development
     // WARNING: Only use this in development. Remove in production!
-    (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
+    (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
       final client = HttpClient();
       client.badCertificateCallback =
           (X509Certificate cert, String host, int port) {
-            // Accept all certificates for development
-            return true;
-          };
+        return true;
+      };
       return client;
     };
+    return dio;
+  }
+
+  /// Call once at app startup (e.g. from main) to enable 401 → refresh → retry and logout redirect.
+  static void configureAuth(AuthInterceptorCallbacks callbacks) {
+    AuthInterceptor.configure(callbacks);
   }
 
   Dio get dio => _dio;
@@ -143,7 +145,7 @@ class ApiService {
     }
   }
 
-  // Set authorization token
+  /// Set authorization token on the shared Dio (used after login/refresh).
   void setAuthToken(String? token) {
     if (token != null) {
       _dio.options.headers['Authorization'] = 'Bearer $token';

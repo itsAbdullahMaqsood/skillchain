@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/core/network/api_exception.dart';
-import 'package:skillchain/Pages/forgot_password_page.dart';
+import 'package:skillchain/features/auth/screens/forgot_password_screen.dart';
 import 'package:skillchain/Pages/home_page.dart';
 import 'package:skillchain/Pages/signup/signup_email_page.dart';
 import 'package:skillchain/services/auth_service.dart';
@@ -168,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.emailAddress,
                           autocorrect: false,
                           decoration: InputDecoration(
-                            hintText: "abb@gmail.com",
+                            hintText: "admin@gmail.com",
                             suffixIcon: const Icon(Icons.email_outlined),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -181,7 +181,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           validator: (value) {
                             final s = value?.trim() ?? '';
                             if (s.isEmpty) return 'Email is required';
-                            if (!RegExp(r'^[\w.-]+@[\w.-]+\.\w+$').hasMatch(s)) {
+                            if (!RegExp(
+                              r'^[\w.-]+@[\w.-]+\.\w+$',
+                            ).hasMatch(s)) {
                               return 'Please enter a valid email';
                             }
                             return null;
