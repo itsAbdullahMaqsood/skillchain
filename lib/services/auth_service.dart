@@ -285,10 +285,7 @@ class AuthService {
   Future<void> persistAuthFromLogin(LoginSuccessResponse response) async {
     await _storage.write(key: _accessTokenKey, value: response.accessToken);
     await _storage.write(key: _refreshTokenKey, value: response.refreshToken);
-    await _storage.write(
-      key: _userDataKey,
-      value: jsonEncode(response.user),
-    );
+    await _storage.write(key: _userDataKey, value: jsonEncode(response.user));
     _apiService.setAuthToken(response.accessToken);
   }
 
@@ -306,9 +303,7 @@ class AuthService {
     if (raw == null || raw.isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
-      return decoded is Map<String, dynamic>
-          ? decoded
-          : <String, dynamic>{};
+      return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
     } catch (_) {
       return null;
     }
@@ -326,7 +321,7 @@ class AuthService {
     try {
       final response = await _apiService.post(
         '/users/refresh',
-        data: <String, dynamic>{'refreshToken': refresh},
+        data: {'refreshToken': refresh},
       );
       final data = response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>

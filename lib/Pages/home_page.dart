@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:skillchain/Pages/chat_inbox.dart';
-import 'package:skillchain/Pages/login_page.dart';
+import 'package:skillchain/Pages/chat/chat_inbox.dart';
+import 'package:skillchain/Pages/login/login_page.dart';
 import 'package:skillchain/Pages/my_offers.dart';
 import 'package:skillchain/Pages/profile_page.dart';
-import 'package:skillchain/Pages/timecoin_screen.dart';
+import 'package:skillchain/Pages/timecoin/timecoin_screen.dart';
 import 'package:skillchain/models/user.dart';
 import 'package:skillchain/models/recommendation.dart';
 import 'package:skillchain/models/exchange_type.dart';

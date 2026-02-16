@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:skillchain/Pages/chat_page.dart';
+import 'package:skillchain/Pages/chat/chat_page.dart';
 import 'package:intl/intl.dart';
 
 class ChatConversation {

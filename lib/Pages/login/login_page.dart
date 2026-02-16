@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/core/network/api_exception.dart';
-import 'package:skillchain/features/auth/screens/forgot_password_screen.dart';
+import 'package:skillchain/Pages/forgot%20password/forgot_password_screen.dart';
 import 'package:skillchain/Pages/home_page.dart';
 import 'package:skillchain/Pages/signup/signup_email_page.dart';
 import 'package:skillchain/services/auth_service.dart';

@@ -1,55 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:skillchain/features/auth/services/password_service.dart';
+import 'package:skillchain/services/password_service.dart';
+import 'package:skillchain/Pages/forgot%20password/verify_otp_screen.dart';
 
-class ResetPasswordScreen extends StatefulWidget {
-  const ResetPasswordScreen({super.key, required this.resetToken});
-
-  final String resetToken;
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordService = PasswordService();
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
 
   @override
   void dispose() {
-    _passwordController.dispose();
-    _confirmController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
-  Future<void> _resetPassword() async {
+  Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     try {
-      await _passwordService.resetPassword(
-        widget.resetToken,
-        _passwordController.text,
-      );
+      await _passwordService.forgotPassword(_emailController.text.trim());
       if (!mounted) return;
+      setState(() => _isLoading = false);
+      final email = _emailController.text.trim();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset successfully', style: TextStyle(color: Colors.white)),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text(
+            'OTP sent to $email. Check your inbox and spam folder.',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.green.shade700,
         ),
       );
-      Navigator.pushNamedAndRemoveUntil(
+      if (!mounted) return;
+      await Navigator.push<void>(
         context,
-        '/login',
-        (_) => false,
+        MaterialPageRoute(
+          builder: (context) => VerifyOtpScreen(email: email),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -59,8 +59,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           backgroundColor: Colors.red.shade700,
         ),
       );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -96,7 +94,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Set New Password',
+              'Reset Your Password',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -107,7 +105,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                'Choose a new password (at least 6 characters).',
+                "Enter your email and we'll send you a one-time code.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
               ),
@@ -139,7 +137,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         const SizedBox(height: 20),
                         const Center(
                           child: Text(
-                            'New Password',
+                            'Forgot Password?',
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -150,24 +148,20 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         const SizedBox(height: 8),
                         Center(
                           child: Text(
-                            'Minimum 6 characters',
+                            "We'll send an OTP to your email",
                             style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                           ),
                         ),
                         const SizedBox(height: 24),
-                        const Text('Password'),
+                        const Text('Email Address'),
                         const SizedBox(height: 6),
                         TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          autocorrect: false,
                           decoration: InputDecoration(
-                            hintText: '••••••••',
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                              ),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                            ),
+                            hintText: 'user@example.com',
+                            suffixIcon: const Icon(Icons.email_outlined),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -177,36 +171,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             ),
                           ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) return 'Password is required';
-                            if (value.length < 6) return 'At least 6 characters';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        const Text('Confirm Password'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _confirmController,
-                          obscureText: _obscureConfirm,
-                          decoration: InputDecoration(
-                            hintText: '••••••••',
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscureConfirm ? Icons.visibility_off : Icons.visibility,
-                              ),
-                              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Colors.red),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return 'Confirm password';
-                            if (value != _passwordController.text) return 'Passwords do not match';
+                            final s = value?.trim() ?? '';
+                            if (s.isEmpty) return 'Email is required';
+                            if (!RegExp(r'^[\w.-]+@[\w.-]+\.\w+$').hasMatch(s)) {
+                              return 'Please enter a valid email';
+                            }
                             return null;
                           },
                         ),
@@ -221,7 +190,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            onPressed: _isLoading ? null : _resetPassword,
+                            onPressed: _isLoading ? null : _sendOtp,
                             child: _isLoading
                                 ? const SizedBox(
                                     height: 20,
@@ -231,7 +200,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     ),
                                   )
-                                : const Text('Reset Password'),
+                                : const Text('Send OTP'),
                           ),
                         ),
                       ],

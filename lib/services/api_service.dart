@@ -50,8 +50,8 @@ class ApiService {
       final client = HttpClient();
       client.badCertificateCallback =
           (X509Certificate cert, String host, int port) {
-        return true;
-      };
+            return true;
+          };
       return client;
     };
     return dio;
@@ -77,17 +77,9 @@ class ApiService {
   }
 
   // Helper method for POST requests
-  Future<Response> post(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-  }) async {
+  Future<Response> post(String path, {dynamic data}) async {
     try {
-      return await _dio.post(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-      );
+      return await _dio.post(path, data: data);
     } catch (e) {
       rethrow;
     }
@@ -107,17 +99,9 @@ class ApiService {
   }
 
   // Helper method for DELETE requests
-  Future<Response> delete(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-  }) async {
+  Future<Response> delete(String path, {dynamic data}) async {
     try {
-      return await _dio.delete(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-      );
+      return await _dio.delete(path, data: data);
     } catch (e) {
       rethrow;
     }

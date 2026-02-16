@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:skillchain/core/network/auth_interceptor.dart';
-import 'package:skillchain/Pages/login_page.dart';
+import 'package:skillchain/Pages/login/login_page.dart';
 import 'package:skillchain/Pages/splash_screen.dart';
 import 'package:skillchain/services/api_service.dart';
 import 'package:skillchain/services/auth_service.dart';

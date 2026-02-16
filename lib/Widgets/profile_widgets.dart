@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:skillchain/models/user.dart';
-import 'package:skillchain/Pages/login_page.dart';
+import 'package:skillchain/Pages/login/login_page.dart';
 
 class ProfileHeader extends StatelessWidget {
   final UserModel user;

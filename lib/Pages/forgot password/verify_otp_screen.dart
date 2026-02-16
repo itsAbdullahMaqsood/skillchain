@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:skillchain/features/auth/services/password_service.dart';
-import 'package:skillchain/features/auth/screens/reset_password_screen.dart';
+import 'package:skillchain/services/password_service.dart';
+import 'package:skillchain/Pages/forgot%20password/reset_password_screen.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   const VerifyOtpScreen({super.key, required this.email});

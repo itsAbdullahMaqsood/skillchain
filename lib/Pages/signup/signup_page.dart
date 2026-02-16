@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:skillchain/Pages/login_page.dart';
+import 'package:skillchain/Pages/login/login_page.dart';
 import 'package:skillchain/services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
