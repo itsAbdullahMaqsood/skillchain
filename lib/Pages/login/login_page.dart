@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/core/network/api_exception.dart';
 import 'package:skillchain/Pages/forgot%20password/forgot_password_screen.dart';
-import 'package:skillchain/Pages/home_page.dart';
+import 'package:skillchain/Pages/home/home_shell.dart';
 import 'package:skillchain/Pages/signup/signup_email_page.dart';
 import 'package:skillchain/services/auth_service.dart';
 import 'package:skillchain/services/login_api_service.dart';
@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = false);
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const HomeShell()),
       );
     } on ApiException catch (e) {
       if (!mounted) return;

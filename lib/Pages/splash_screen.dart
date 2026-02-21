@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:skillchain/Pages/home_page.dart';
+import 'package:skillchain/Pages/home/home_shell.dart';
 import 'package:skillchain/Pages/login/login_page.dart';
 import 'package:skillchain/services/auth_service.dart';
 
@@ -50,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (isLoggedIn) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const HomeShell()),
       );
     } else {
       Navigator.pushReplacement(

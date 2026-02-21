@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:skillchain/core/network/api_exception.dart';
 import 'package:skillchain/core/storage/token_storage.dart';
 import 'package:skillchain/models/signup_models.dart';
-import 'package:skillchain/Pages/home_page.dart';
+import 'package:skillchain/Pages/home/home_shell.dart';
 import 'package:skillchain/services/auth_service.dart';
 import 'package:skillchain/services/signup_api_service.dart';
 
@@ -242,7 +242,7 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
       setState(() => _isLoading = false);
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const HomeShell()),
         (route) => false,
       );
     } on ApiException catch (e) {
