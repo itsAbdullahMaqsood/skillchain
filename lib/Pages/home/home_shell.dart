@@ -9,12 +9,12 @@ import 'package:skillchain/Pages/home/home_body_screen.dart';
 import 'package:skillchain/offers/new_offer_screen.dart';
 import 'package:skillchain/Widgets/home_drawer.dart';
 import 'package:skillchain/models/user.dart';
-import 'package:skillchain/models/recommendation.dart';
-import 'package:skillchain/models/exchange_type.dart';
+import 'package:skillchain/models/skill_post.dart';
 import 'package:skillchain/services/timecoin_service.dart';
+import 'package:skillchain/services/skill_post_service.dart';
 
-/// Main scaffold with bottom navigation, app bar, and drawer.
-/// Hosts Home, Chat, New Offer, Offers, and Profile.
+enum SortMode { bestMatch, newestFirst, oldestFirst }
+
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -25,8 +25,21 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 0;
   final TimecoinService _timecoinService = TimecoinService.instance;
-  final TextEditingController _searchController = TextEditingController();
+  final SkillPostService _skillPostService = SkillPostService();
   String _searchQuery = '';
+  SortMode _sortMode = SortMode.bestMatch;
+
+  // Feed state
+  List<SkillPost> _posts = [];
+  bool _isLoadingInitial = false;
+  bool _isFetchingMore = false;
+  bool _isFetching = false;
+  bool _hasMore = true;
+  int _offset = 0;
+  String? _feedError;
+  String _activeSearch = '';
+  static const int _pageLimit = 10;
+  static const String _feedStatus = 'active';
 
   final UserModel _sampleUser = UserModel(
     id: '1',
@@ -57,59 +70,125 @@ class _HomeShellState extends State<HomeShell> {
     twitter: '@AbuBakar',
   );
 
-  final List<Recommendation> _recommendations = [
-    Recommendation(
-      id: '1',
-      name: 'Sarah Jenkins',
-      profileImage: 'https://i.pravatar.cc/300?img=47',
-      isVerified: true,
-      rating: 4.9,
-      status: 'Replies in 1h',
-      matchPercentage: 98,
-      offers: ['UI Design', 'Figma', 'Research'],
-      needs: ['Python', 'React'],
-      exchangeType: ExchangeType.skillExchange,
-    ),
-    Recommendation(
-      id: '2',
-      name: 'David Chen',
-      profileImage: 'https://i.pravatar.cc/300?img=12',
-      isVerified: false,
-      rating: 4.7,
-      status: 'Online Now',
-      matchPercentage: 85,
-      offers: ['Python', 'Django'],
-      needs: ['UX Design', 'English'],
-      exchangeType: ExchangeType.skillExchange,
-    ),
-    Recommendation(
-      id: '3',
-      name: 'Elena Rodriguez',
-      profileImage: 'https://i.pravatar.cc/300?img=33',
-      isVerified: true,
-      rating: 5.0,
-      status: 'Replies in 5m',
-      matchPercentage: 0,
-      isTopRated: true,
-      offers: ['Marketing', 'SEO'],
-      needs: ['Webflow'],
-      exchangeType: ExchangeType.timecoinExchange,
-      timecoinCost: 8,
-    ),
-    Recommendation(
-      id: '4',
-      name: 'Michael Thomp',
-      profileImage: 'https://i.pravatar.cc/300?img=20',
-      isVerified: true,
-      rating: 4.8,
-      status: 'Replies in 2h',
-      matchPercentage: 92,
-      offers: ['JavaScript', 'Node.js'],
-      needs: [],
-      exchangeType: ExchangeType.timecoinExchange,
-      timecoinCost: 6,
-    ),
-  ];
+  final Map<String, SkillPost> _postsById = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPosts(isInitial: true);
+  }
+
+  Future<void> _fetchPosts({bool isInitial = false}) async {
+    if (_isFetching) return;
+    if (!isInitial && !_hasMore) return;
+    _isFetching = true;
+
+    if (isInitial) {
+      _offset = 0;
+      _postsById.clear();
+    }
+
+    setState(() {
+      _isLoadingInitial = isInitial;
+      _isFetchingMore = !isInitial;
+      _feedError = isInitial ? null : _feedError;
+    });
+
+    final requestOffset = _offset;
+
+    try {
+      final result = await _skillPostService.getSkillPosts(
+        limit: _pageLimit,
+        offset: requestOffset,
+        status: _feedStatus,
+        search: _activeSearch.isNotEmpty ? _activeSearch : null,
+      );
+      if (!mounted) return;
+
+      int addedCount = 0;
+      for (final post in result.posts) {
+        if (!post.isExpired && !_postsById.containsKey(post.id)) {
+          _postsById[post.id] = post;
+          addedCount++;
+        }
+      }
+
+      final nextOffset = requestOffset + result.posts.length;
+      final moreAvailable =
+          result.hasMore && result.posts.isNotEmpty && addedCount > 0;
+
+      debugPrint(
+        '[Feed] offset=$requestOffset fetched=${result.posts.length} '
+        'new=$addedCount total=${_postsById.length} '
+        'nextOffset=$nextOffset hasMore=$moreAvailable',
+      );
+
+      setState(() {
+        _posts = _sortPosts(_postsById.values.toList());
+        _offset = nextOffset;
+        _hasMore = moreAvailable;
+        _isLoadingInitial = false;
+        _isFetchingMore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingInitial = false;
+        _isFetchingMore = false;
+        if (isInitial) _feedError = e.toString();
+      });
+    } finally {
+      _isFetching = false;
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    _hasMore = true;
+    await _fetchPosts(isInitial: true);
+  }
+
+  void _onSearchChanged(String value) {
+    final trimmed = value.trim();
+    if (trimmed == _activeSearch) return;
+    _searchQuery = value.toLowerCase().trim();
+    _activeSearch = trimmed;
+    _hasMore = true;
+    _fetchPosts(isInitial: true);
+  }
+
+  List<SkillPost> _sortPosts(List<SkillPost> posts) {
+    switch (_sortMode) {
+      case SortMode.bestMatch:
+        posts.sort((a, b) {
+          if (a.matchesMySkills && !b.matchesMySkills) return -1;
+          if (!a.matchesMySkills && b.matchesMySkills) return 1;
+          final aDate = a.createdAt ?? DateTime(2000);
+          final bDate = b.createdAt ?? DateTime(2000);
+          return bDate.compareTo(aDate);
+        });
+      case SortMode.newestFirst:
+        posts.sort((a, b) {
+          final aDate = a.createdAt ?? DateTime(2000);
+          final bDate = b.createdAt ?? DateTime(2000);
+          return bDate.compareTo(aDate);
+        });
+      case SortMode.oldestFirst:
+        posts.sort((a, b) {
+          final aDate = a.createdAt ?? DateTime(2000);
+          final bDate = b.createdAt ?? DateTime(2000);
+          return aDate.compareTo(bDate);
+        });
+    }
+    return posts;
+  }
+
+  void _onSortChanged(SortMode mode) {
+    if (mode == _sortMode) return;
+    setState(() {
+      _sortMode = mode;
+      _posts = _sortPosts(_postsById.values.toList());
+    });
+  }
 
   void _logout(BuildContext context) {
     Navigator.pushAndRemoveUntil(
@@ -119,24 +198,8 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
-  List<Recommendation> get _filteredRecommendations {
-    if (_searchQuery.isEmpty) {
-      return _recommendations;
-    }
-    return _recommendations.where((recommendation) {
-      final nameMatch =
-          recommendation.name.toLowerCase().contains(_searchQuery);
-      final offersMatch = recommendation.offers
-          .any((skill) => skill.toLowerCase().contains(_searchQuery));
-      final needsMatch = recommendation.needs
-          .any((skill) => skill.toLowerCase().contains(_searchQuery));
-      return nameMatch || offersMatch || needsMatch;
-    }).toList();
-  }
-
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -157,7 +220,7 @@ class _HomeShellState extends State<HomeShell> {
             context,
             MaterialPageRoute(builder: (_) => screen),
           ).then((_) {
-            setState(() {}); // Refresh balance etc. when returning
+            setState(() {});
           });
         },
         onLogout: () => _logout(context),
@@ -173,44 +236,14 @@ class _HomeShellState extends State<HomeShell> {
             },
           ),
         ),
-        titleSpacing: 0,
-        title: Container(
-          height: 40,
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.center,
-          child: TextField(
-            controller: _searchController,
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value.toLowerCase().trim();
-              });
-            },
-            decoration: InputDecoration(
-              hintText: "Search",
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 20),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {
-                          _searchQuery = '';
-                        });
-                      },
-                    )
-                  : null,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 10,
-                horizontal: 12,
-              ),
-              isDense: true,
-            ),
-            style: const TextStyle(fontSize: 14),
+        titleSpacing: 4,
+        title: const Text(
+          'Skill Chain',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+            letterSpacing: 0.3,
           ),
         ),
         actions: [
@@ -294,9 +327,18 @@ class _HomeShellState extends State<HomeShell> {
     switch (_currentIndex) {
       case 0:
         return HomeBodyScreen(
-          recommendations: _filteredRecommendations,
+          posts: _posts,
           searchQuery: _searchQuery,
+          isLoadingInitial: _isLoadingInitial,
+          isFetchingMore: _isFetchingMore,
+          hasMore: _hasMore,
+          feedError: _feedError,
+          onFetchMore: () => _fetchPosts(),
+          onRefresh: _onRefresh,
           onBalanceUpdate: () => setState(() {}),
+          onSearchSubmitted: _onSearchChanged,
+          sortMode: _sortMode,
+          onSortChanged: _onSortChanged,
         );
       case 1:
         return const ChatInboxScreen();
@@ -308,9 +350,18 @@ class _HomeShellState extends State<HomeShell> {
         return ProfileScreen(user: _sampleUser, isCurrentUser: true);
       default:
         return HomeBodyScreen(
-          recommendations: _filteredRecommendations,
+          posts: _posts,
           searchQuery: _searchQuery,
+          isLoadingInitial: _isLoadingInitial,
+          isFetchingMore: _isFetchingMore,
+          hasMore: _hasMore,
+          feedError: _feedError,
+          onFetchMore: () => _fetchPosts(),
+          onRefresh: _onRefresh,
           onBalanceUpdate: () => setState(() {}),
+          onSearchSubmitted: _onSearchChanged,
+          sortMode: _sortMode,
+          onSortChanged: _onSortChanged,
         );
     }
   }

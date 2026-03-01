@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:skillchain/models/recommendation.dart';
-import 'package:skillchain/models/exchange_type.dart';
-import 'package:skillchain/services/timecoin_service.dart';
-import 'package:skillchain/Pages/timecoin/timecoin_screen.dart';
+import 'package:skillchain/models/skill_post.dart';
+import 'package:skillchain/Pages/bidding/bid_screen.dart';
 
 class RecommendationCard extends StatelessWidget {
-  final Recommendation recommendation;
+  final SkillPost post;
   final VoidCallback? onBalanceUpdate;
 
   const RecommendationCard({
     super.key,
-    required this.recommendation,
+    required this.post,
     this.onBalanceUpdate,
   });
+
+  bool get _isOfferSkill => post.offerType.toUpperCase() == 'SKILL';
+  bool get _isRequestSkill => post.requestType.toUpperCase() == 'SKILL';
+  bool get _isSkillExchange => _isOfferSkill && _isRequestSkill;
 
   @override
   Widget build(BuildContext context) {
@@ -26,134 +28,105 @@ class RecommendationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Profile, Name, Rating, Match Badge
-          Row(
+          _buildHeader(),
+          const SizedBox(height: 14),
+          _buildTitleDescription(),
+          const SizedBox(height: 14),
+          _buildOffersSection(),
+          const SizedBox(height: 12),
+          _buildNeedsSection(),
+          const SizedBox(height: 16),
+          _buildActionButtons(context),
+        ],
+      ),
+    );
+  }
+
+  // ─── HEADER ───────────────────────────────────────────────────────
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundImage: post.profileImage.isNotEmpty
+              ? NetworkImage(post.profileImage)
+              : null,
+          child: post.profileImage.isEmpty
+              ? const Icon(Icons.person, size: 28)
+              : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundImage: NetworkImage(recommendation.profileImage),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          recommendation.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (recommendation.isVerified) ...[
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.verified,
-                            color: Colors.blue,
-                            size: 18,
-                          ),
-                        ],
-                      ],
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      post.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.star, color: Colors.amber, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          recommendation.rating.toString(),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          recommendation.status,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
+                  ),
+                  if (post.isVerified) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.verified, color: Colors.blue, size: 18),
                   ],
-                ),
+                ],
               ),
-              if (recommendation.isTopRated)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  if (post.rating > 0) ...[
+                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      post.rating.toStringAsFixed(1),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Icon(
+                    Icons.access_time,
+                    size: 14,
+                    color: Colors.grey.shade500,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(20),
+                  const SizedBox(width: 4),
+                  Text(
+                    _timeAgo(post.createdAt),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.bolt, size: 14, color: Colors.green.shade700),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Top Rated',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.bolt, size: 14, color: Colors.blue.shade700),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${recommendation.matchPercentage}% Match',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          // OFFERS Section
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _buildExchangeBadge(),
+            if (post.matchesMySkills) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.arrow_upward,
-                      size: 16,
-                      color: Colors.green.shade700,
-                    ),
-                    const SizedBox(width: 6),
+                    Icon(Icons.bolt, size: 14, color: Colors.green.shade700),
+                    const SizedBox(width: 4),
                     Text(
-                      'OFFERS',
+                      'Match',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -162,324 +135,354 @@ class RecommendationCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (recommendation.exchangeType ==
-                        ExchangeType.timecoinExchange &&
-                    recommendation.timecoinCost != null)
-                  Row(
-                    children: [
-                      SvgPicture.asset(
-                        'assets/images/timecoin.svg',
-                        width: 18,
-                        height: 18,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'timecoins: ${recommendation.timecoinCost}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green.shade700,
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: recommendation.offers.map((skill) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          skill,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green.shade700,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-              ],
-            ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ─── TITLE + DESCRIPTION ──────────────────────────────────────────
+  Widget _buildTitleDescription() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (post.title.isNotEmpty)
+          Text(
+            post.title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 12),
-          // NEEDS Section
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.purple.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 16,
-                      color: Colors.purple.shade700,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'NEEDS',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.purple.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: recommendation.needs.map((skill) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        skill,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.purple.shade700,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
+        if (post.title.isNotEmpty && post.description.isNotEmpty)
+          const SizedBox(height: 4),
+        if (post.description.isNotEmpty)
+          Text(
+            post.description,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 16),
-          // Exchange Type Badge
+      ],
+    );
+  }
+
+  // ─── OFFERS SECTION ───────────────────────────────────────────────
+  Widget _buildOffersSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
-              Container(
+              Icon(Icons.arrow_upward, size: 16, color: Colors.green.shade700),
+              const SizedBox(width: 6),
+              Text(
+                'OFFERS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.green.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_isOfferSkill)
+            _buildSkillContent(
+              skills: post.offers,
+              durationMinutes: post.courseTotalMinutes,
+              courseOutline: post.courseOutline,
+              color: Colors.green.shade700,
+            )
+          else
+            _buildTimecoinContent(
+              timeCoins: post.offerTimeCoins,
+              color: Colors.green.shade700,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ─── NEEDS SECTION ────────────────────────────────────────────────
+  Widget _buildNeedsSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.check_circle, size: 16, color: Colors.purple.shade700),
+              const SizedBox(width: 6),
+              Text(
+                'NEEDS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.purple.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_isRequestSkill)
+            _buildSkillContent(
+              skills: post.needs,
+              durationMinutes: post.desiredDurationMinutes,
+              color: Colors.purple.shade700,
+            )
+          else
+            _buildTimecoinContent(
+              timeCoins: post.requestTimeCoins,
+              color: Colors.purple.shade700,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ─── SKILL CONTENT (chips + optional duration/outline) ────────────
+  Widget _buildSkillContent({
+    required List<String> skills,
+    int? durationMinutes,
+    String? courseOutline,
+    required Color color,
+  }) {
+    if (skills.isEmpty && durationMinutes == null) {
+      return Text(
+        'No skills specified',
+        style: TextStyle(fontSize: 12, color: color),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (skills.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: skills.map((skill) {
+              return Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
+                  horizontal: 12,
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color:
-                      recommendation.exchangeType == ExchangeType.skillExchange
-                      ? Colors.green.shade50
-                      : Colors.blue.shade50,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      recommendation.exchangeType == ExchangeType.skillExchange
-                          ? Icons.swap_horiz
-                          : Icons.monetization_on,
-                      size: 14,
-                      color:
-                          recommendation.exchangeType ==
-                              ExchangeType.skillExchange
-                          ? Colors.green.shade700
-                          : Colors.blue.shade700,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      recommendation.exchangeType == ExchangeType.skillExchange
-                          ? 'Skill Exchange'
-                          : 'Timecoin Exchange',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color:
-                            recommendation.exchangeType ==
-                                ExchangeType.skillExchange
-                            ? Colors.green.shade700
-                            : Colors.blue.shade700,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  skill,
+                  style: TextStyle(fontSize: 12, color: color),
+                ),
+              );
+            }).toList(),
+          ),
+        if (durationMinutes != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.timer_outlined, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                _formatDuration(durationMinutes),
+                style: TextStyle(fontSize: 12, color: color),
+              ),
+            ],
+          ),
+        ],
+        if (courseOutline != null && courseOutline.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            courseOutline,
+            style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8)),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ─── TIMECOIN CONTENT ─────────────────────────────────────────────
+  Widget _buildTimecoinContent({int? timeCoins, required Color color}) {
+    if (timeCoins == null) {
+      return Text(
+        'TimeCoins amount not set',
+        style: TextStyle(fontSize: 12, color: color),
+      );
+    }
+    return Row(
+      children: [
+        SvgPicture.asset('assets/images/timecoin.svg', width: 18, height: 18),
+        const SizedBox(width: 6),
+        Text(
+          '$timeCoins TimeCoins',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── EXCHANGE TYPE BADGE ──────────────────────────────────────────
+  Widget _buildExchangeBadge() {
+    final isSkill = _isSkillExchange;
+    final badgeColor = isSkill ? Colors.green : Colors.blue;
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: badgeColor.shade50,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSkill ? Icons.swap_horiz : Icons.monetization_on,
+                size: 14,
+                color: badgeColor.shade700,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isSkill ? 'Skill Exchange' : 'TimeCoin Exchange',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: badgeColor.shade700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _handleRequestPressed(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        recommendation.exchangeType ==
-                            ExchangeType.skillExchange
-                        ? Colors.green
-                        : Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        recommendation.exchangeType ==
-                                ExchangeType.skillExchange
-                            ? 'Request Skill Exchange'
-                            : 'Request Session',
-                      ),
-                      if (recommendation.exchangeType ==
-                              ExchangeType.timecoinExchange &&
-                          recommendation.timecoinCost != null) ...[
-                        const SizedBox(width: 8),
-                        SvgPicture.asset(
-                          'assets/images/timecoin.svg',
-                          width: 16,
-                          height: 16,
-                        ),
-                      ],
-                    ],
-                  ),
+        ),
+      ],
+    );
+  }
+
+  // ─── ACTION BUTTONS ───────────────────────────────────────────────
+  Widget _buildActionButtons(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () => _handleAcceptPressed(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.green.shade700,
+              side: BorderSide(color: Colors.green.shade300),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline, size: 18),
+                SizedBox(width: 6),
+                Text('Accept', style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => BidScreen(post: post)),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.gavel, size: 18),
+                SizedBox(width: 6),
+                Text('Bid', style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── DIALOGS ──────────────────────────────────────────────────────
+  void _handleAcceptPressed(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Accept Post'),
+        content: const Text(
+          'Do you agree upon all the offerings and needs of this post?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // TODO: Replace with actual accept API call
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Accepted post by ${post.name}!'),
+                  backgroundColor: Colors.green,
                 ),
-              ),
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.bookmark_border),
-                color: Colors.grey,
-              ),
-            ],
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Confirm'),
           ),
         ],
       ),
     );
   }
 
-  void _handleRequestPressed(BuildContext context) {
-    if (recommendation.exchangeType == ExchangeType.skillExchange) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Request Skill Exchange"),
-          content: Text(
-            "You'll exchange your skills with ${recommendation.name}.\n\n"
-            "This is a skill-for-skill exchange - no timecoins required!",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      "Skill exchange requested with ${recommendation.name}!",
-                    ),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text("Confirm"),
-            ),
-          ],
-        ),
-      );
-    } else {
-      final timecoinService = TimecoinService.instance;
-      final sessionCost = recommendation.timecoinCost ?? 5;
+  // ─── HELPERS ──────────────────────────────────────────────────────
+  static String _timeAgo(DateTime? date) {
+    if (date == null) return '';
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays >= 365) return '${diff.inDays ~/ 365}y ago';
+    if (diff.inDays >= 30) return '${diff.inDays ~/ 30}mo ago';
+    if (diff.inDays >= 1) return '${diff.inDays}d ago';
+    if (diff.inHours >= 1) return '${diff.inHours}h ago';
+    if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
+    return 'Just now';
+  }
 
-      if (timecoinService.getBalance() >= sessionCost) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Request Session"),
-            content: Text(
-              "This session will cost $sessionCost timecoins.\n\n"
-              "Current balance: ${timecoinService.getBalance()} timecoins\n"
-              "After payment: ${timecoinService.getBalance() - sessionCost} timecoins\n\n"
-              "Do you want to proceed?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final success = timecoinService.spendTimecoins(
-                    sessionCost,
-                    "Session with ${recommendation.name}",
-                    relatedUserId: recommendation.id,
-                  );
-                  Navigator.pop(context);
-                  if (success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          "Session requested! $sessionCost timecoins deducted.",
-                        ),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    onBalanceUpdate?.call();
-                  }
-                },
-                child: const Text("Confirm"),
-              ),
-            ],
-          ),
-        );
-      } else {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Insufficient Timecoins"),
-            content: Text(
-              "You need $sessionCost timecoins to request this session.\n\n"
-              "Current balance: ${timecoinService.getBalance()} timecoins\n\n"
-              "Would you like to purchase more timecoins?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TimecoinScreen(),
-                    ),
-                  ).then((_) => onBalanceUpdate?.call());
-                },
-                child: const Text("Buy Timecoins"),
-              ),
-            ],
-          ),
-        );
-      }
+  static String _formatDuration(int minutes) {
+    if (minutes >= 60) {
+      final h = minutes ~/ 60;
+      final m = minutes % 60;
+      return m > 0 ? '${h}h ${m}m' : '${h}h';
     }
+    return '${minutes}m';
   }
 }

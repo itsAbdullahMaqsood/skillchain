@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/models/user.dart';
-import 'package:skillchain/offers/open_offers.dart';
+import 'package:skillchain/Pages/my_posts/my_posts_screen.dart';
 import 'package:skillchain/Pages/timecoin/timecoin_screen.dart';
 import 'package:skillchain/Pages/settings/settings_screen.dart';
 
@@ -56,11 +56,13 @@ class HomeDrawer extends StatelessWidget {
                       CircleAvatar(
                         radius: 35,
                         backgroundColor: Colors.white,
-                        backgroundImage: (user.profilePic != null &&
+                        backgroundImage:
+                            (user.profilePic != null &&
                                 user.profilePic!.isNotEmpty)
                             ? NetworkImage(user.profilePic!)
                             : null,
-                        child: (user.profilePic == null ||
+                        child:
+                            (user.profilePic == null ||
                                 user.profilePic!.isEmpty)
                             ? Icon(Icons.person, size: 40, color: Colors.grey)
                             : null,
@@ -192,11 +194,11 @@ class HomeDrawer extends StatelessWidget {
             ),
             _buildDrawerItem(
               context,
-              icon: Icons.inbox_outlined,
-              title: 'My Offers',
+              icon: Icons.article_outlined,
+              title: 'My Posts',
               onTap: () {
                 Navigator.pop(context);
-                onPushScreen(const MyOffersScreen());
+                onPushScreen(const MyPostsScreen());
               },
             ),
             _buildDrawerItem(
