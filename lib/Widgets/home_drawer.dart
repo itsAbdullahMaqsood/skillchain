@@ -53,19 +53,26 @@ class HomeDrawer extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 35,
-                        backgroundColor: Colors.white,
-                        backgroundImage: user.profileImageUrl.isNotEmpty
-                            ? NetworkImage(user.profileImageUrl)
-                            : null,
-                        child: user.profileImageUrl.isEmpty
-                            ? const Icon(
-                                Icons.person,
-                                size: 40,
-                                color: Colors.grey,
-                              )
-                            : null,
+                      InkWell(
+                        onTap: () {
+                          Navigator.pop(context);
+                          onSelectTab(4);
+                        },
+                        borderRadius: BorderRadius.circular(35),
+                        child: CircleAvatar(
+                          radius: 35,
+                          backgroundColor: Colors.white,
+                          backgroundImage: user.profileImageUrl.isNotEmpty
+                              ? NetworkImage(user.profileImageUrl)
+                              : null,
+                          child: user.profileImageUrl.isEmpty
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey,
+                                )
+                              : null,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -74,12 +81,16 @@ class HomeDrawer extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Text(
-                                  user.fullName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
+                                Expanded(
+                                  child: Text(
+                                    user.fullName,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -90,14 +101,6 @@ class HomeDrawer extends StatelessWidget {
                                     size: 20,
                                   ),
                               ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user.email,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 14,
-                              ),
                             ),
                             const SizedBox(height: 8),
                             Container(
@@ -160,9 +163,9 @@ class HomeDrawer extends StatelessWidget {
                 children: [
                   _buildStatItem(
                     context,
-                    icon: Icons.people_outline,
-                    value: '${user.connections ?? 0}',
-                    label: 'Connections',
+                    icon: Icons.article_outlined,
+                    value: '${user.posts ?? user.myOffers.length}',
+                    label: 'Active Posts',
                   ),
                   Container(width: 1, height: 40, color: Colors.blue.shade200),
                   _buildStatItem(
@@ -174,9 +177,9 @@ class HomeDrawer extends StatelessWidget {
                   Container(width: 1, height: 40, color: Colors.blue.shade200),
                   _buildStatItem(
                     context,
-                    icon: Icons.work_outline,
-                    value: '${user.posts ?? 0}',
-                    label: 'Offers',
+                    icon: Icons.rate_review_outlined,
+                    value: '${user.reviewsCount}',
+                    label: 'Reviews',
                   ),
                 ],
               ),
@@ -236,15 +239,6 @@ class HomeDrawer extends StatelessWidget {
 
             const Divider(height: 1),
 
-            _buildDrawerItem(
-              context,
-              icon: Icons.person_outline,
-              title: 'Profile',
-              onTap: () {
-                Navigator.pop(context);
-                onSelectTab(4);
-              },
-            ),
             _buildDrawerItem(
               context,
               icon: Icons.settings_outlined,

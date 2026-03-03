@@ -212,9 +212,16 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7F9),
-      drawer: HomeDrawer(
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentIndex > 0) {
+          setState(() => _currentIndex = 0);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F7F9),
+      endDrawer: HomeDrawer(
         user: _userForDrawer,
         timecoinBalance: _timecoinService.getBalance(),
         onSelectTab: (index) {
@@ -235,59 +242,75 @@ class _HomeShellState extends State<HomeShell> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
-          ),
-        ),
-        titleSpacing: 4,
-        title: const Text(
-          'Skill Chain',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-            letterSpacing: 0.3,
+        automaticallyImplyLeading: false,
+        leadingWidth: 110,
+        leading: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const TimecoinScreen()),
+                ).then((_) {
+                  setState(() {});
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/images/timecoin.svg',
+                      width: 24,
+                      height: 24,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _timecoinService.getBalance().toString(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        centerTitle: true,
+        titleSpacing: 0,
+        title: const SizedBox(
+          width: double.infinity,
+          child: Text(
+            'Skill Chain',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {},
-          ),
-          InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TimecoinScreen()),
-              ).then((_) {
-                setState(() {});
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    'assets/images/timecoin.svg',
-                    width: 24,
-                    height: 24,
+          SizedBox(
+            width: 110,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none, color: Colors.black),
+                  onPressed: () {},
+                ),
+                Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu, color: Colors.black),
+                    onPressed: () {
+                      Scaffold.of(context).openEndDrawer();
+                    },
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _timecoinService.getBalance().toString(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -326,6 +349,7 @@ class _HomeShellState extends State<HomeShell> {
             label: "Profile",
           ),
         ],
+      ),
       ),
     );
   }
