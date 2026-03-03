@@ -79,7 +79,7 @@ class SignupApiService {
     File? profilePic,
     File? portfolio,
     File? resume,
-    List<String> certificate = const [],
+    List<File> certificate = const [],
   }) async {
     final formData = FormData.fromMap({
       'token': token,
@@ -96,10 +96,6 @@ class SignupApiService {
       if (pastExperience != null && pastExperience.isNotEmpty)
         'pastExperience': pastExperience,
     });
-    for (final c in certificate) {
-      formData.fields.add(MapEntry('certificate', c));
-    }
-
     if (profilePic != null && await profilePic.exists()) {
       formData.files.add(MapEntry(
         'profilePic',
@@ -117,6 +113,14 @@ class SignupApiService {
         'resume',
         await MultipartFile.fromFile(resume.path),
       ));
+    }
+    for (final f in certificate) {
+      if (await f.exists()) {
+        formData.files.add(MapEntry(
+          'certificate',
+          await MultipartFile.fromFile(f.path),
+        ));
+      }
     }
 
     try {

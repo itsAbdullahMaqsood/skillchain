@@ -3,6 +3,7 @@ import 'package:skillchain/core/network/api_exception.dart';
 import 'package:skillchain/models/skill_post.dart';
 import 'package:skillchain/services/skill_post_service.dart';
 import 'package:skillchain/Widgets/recommendation_card.dart';
+import 'package:skillchain/Pages/my_posts/my_post_detail_screen.dart';
 
 class MyPostsScreen extends StatefulWidget {
   const MyPostsScreen({super.key});
@@ -75,8 +76,11 @@ class _MyPostsScreenState extends State<MyPostsScreen> {
 
       setState(() {
         _posts = _postsById.values.toList()
-          ..sort((a, b) =>
-              (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+          ..sort(
+            (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+              a.createdAt ?? DateTime(0),
+            ),
+          );
         _hasMore = result.hasMore;
         _offset += result.posts.length;
         _isLoadingInitial = false;
@@ -137,7 +141,18 @@ class _MyPostsScreenState extends State<MyPostsScreen> {
             return Padding(
               key: ValueKey(_posts[index].id),
               padding: const EdgeInsets.only(bottom: 16),
-              child: RecommendationCard(post: _posts[index]),
+              child: RecommendationCard(
+                post: _posts[index],
+                showActions: false,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MyPostDetailScreen(post: _posts[index]),
+                    ),
+                  );
+                },
+              ),
             );
           }
           return _buildBottomLoader();
@@ -152,8 +167,8 @@ class _MyPostsScreenState extends State<MyPostsScreen> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: 4,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (_, __) => _buildSkeletonCard(),
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (_, _) => _buildSkeletonCard(),
     );
   }
 

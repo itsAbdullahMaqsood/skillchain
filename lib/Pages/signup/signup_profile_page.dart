@@ -46,8 +46,7 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
   String? _gender;
   List<SkillItem> _offeringSkills = [];
   List<SkillItem> _learningSkills = [];
-  List<String> _certificates = [];
-  final _certificateController = TextEditingController();
+  List<File> _certificates = [];
 
   File? _profilePic;
   File? _portfolio;
@@ -78,7 +77,6 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
     _locationController.dispose();
     _educationController.dispose();
     _pastExperienceController.dispose();
-    _certificateController.dispose();
     super.dispose();
   }
 
@@ -86,8 +84,7 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
-        setState(() =>
-            _locationController.text = 'Location service disabled');
+        setState(() => _locationController.text = 'Location service disabled');
       }
       return;
     }
@@ -112,18 +109,18 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() =>
-            _locationController.text = 'Could not get location');
+        setState(() => _locationController.text = 'Could not get location');
       }
     }
   }
 
   Future<void> _loadSkills() async {
     if (_skillsCache != null && !_skillsLoading) return;
-    if (mounted) setState(() {
-      _skillsLoading = true;
-      _skillsError = null;
-    });
+    if (mounted)
+      setState(() {
+        _skillsLoading = true;
+        _skillsError = null;
+      });
     try {
       final list = await _api.getSkills();
       if (mounted) {
@@ -157,9 +154,7 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
       type: FileType.any,
       allowMultiple: false,
     );
-    if (result != null &&
-        result.files.single.path != null &&
-        mounted) {
+    if (result != null && result.files.single.path != null && mounted) {
       setState(() => _portfolio = File(result.files.single.path!));
     }
   }
@@ -169,20 +164,27 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
       type: FileType.any,
       allowMultiple: false,
     );
-    if (result != null &&
-        result.files.single.path != null &&
-        mounted) {
+    if (result != null && result.files.single.path != null && mounted) {
       setState(() => _resume = File(result.files.single.path!));
     }
   }
 
-  void _addCertificate() {
-    final s = _certificateController.text.trim();
-    if (s.isEmpty) return;
-    setState(() {
-      _certificates.add(s);
-      _certificateController.clear();
-    });
+  Future<void> _pickCertificates() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: true,
+    );
+    if (result != null && result.files.any((f) => f.path != null) && mounted) {
+      setState(() {
+        for (final f in result.files) {
+          if (f.path != null) _certificates.add(File(f.path!));
+        }
+      });
+    }
+  }
+
+  void _removeCertificate(File f) {
+    setState(() => _certificates.remove(f));
   }
 
   Future<void> _submit() async {
@@ -332,7 +334,10 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
                       decoration: _inputDecoration('Gender *'),
                       items: const [
                         DropdownMenuItem(value: 'male', child: Text('Male')),
-                        DropdownMenuItem(value: 'female', child: Text('Female')),
+                        DropdownMenuItem(
+                          value: 'female',
+                          child: Text('Female'),
+                        ),
                         DropdownMenuItem(value: 'other', child: Text('Other')),
                       ],
                       onChanged: (v) => setState(() => _gender = v),
@@ -346,70 +351,88 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
                           (v?.trim().isEmpty ?? true) ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
-                    const Text('Offering skills *',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    const Text(
+                      'Offering skills *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     _skillsLoading
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
                             child: Center(
-                                child: SizedBox(
-                                    height: 24,
-                                    width: 24,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                )),
+                              child: SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
                           )
                         : _skillsError != null
-                            ? Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.warning_amber,
-                                        size: 20, color: Colors.orange.shade700),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(_skillsError!,
-                                          style: TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.orange.shade800)),
-                                    ),
-                                    TextButton(
-                                        onPressed: _loadSkills,
-                                        child: const Text('Retry')),
-                                  ],
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.warning_amber,
+                                  size: 20,
+                                  color: Colors.orange.shade700,
                                 ),
-                              )
-                            : DropdownSearch<SkillItem>.multiSelection(
-                                key: ValueKey('offering_${_skillsCache?.length ?? 0}'),
-                                items: _skillsCache ?? [],
-                                selectedItems: _offeringSkills,
-                                onChanged: (v) =>
-                                    setState(() => _offeringSkills = v),
-                                itemAsString: (s) => s.name,
-                                compareFn: (a, b) => a.id == b.id,
-                                dropdownDecoratorProps: DropDownDecoratorProps(
-                                  dropdownSearchDecoration: _inputDecoration(
-                                    'Select at least one',
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _skillsError!,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.orange.shade800,
+                                    ),
                                   ),
                                 ),
-                                validator: (v) => (v == null || v.isEmpty)
-                                    ? 'Select at least one'
-                                    : null,
+                                TextButton(
+                                  onPressed: _loadSkills,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : DropdownSearch<SkillItem>.multiSelection(
+                            key: ValueKey(
+                              'offering_${_skillsCache?.length ?? 0}',
+                            ),
+                            items: _skillsCache ?? [],
+                            selectedItems: _offeringSkills,
+                            onChanged: (v) =>
+                                setState(() => _offeringSkills = v),
+                            itemAsString: (s) => s.name,
+                            compareFn: (a, b) => a.id == b.id,
+                            dropdownDecoratorProps: DropDownDecoratorProps(
+                              dropdownSearchDecoration: _inputDecoration(
+                                'Select at least one',
                               ),
+                            ),
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Select at least one'
+                                : null,
+                          ),
                     if (!_skillsLoading && _skillsError == null) ...[
                       const SizedBox(height: 16),
-                      const Text('Learning skills *',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 14)),
+                      const Text(
+                        'Learning skills *',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       DropdownSearch<SkillItem>.multiSelection(
                         key: ValueKey('learning_${_skillsCache?.length ?? 0}'),
                         items: _skillsCache ?? [],
                         selectedItems: _learningSkills,
-                        onChanged: (v) =>
-                            setState(() => _learningSkills = v),
+                        onChanged: (v) => setState(() => _learningSkills = v),
                         itemAsString: (s) => s.name,
                         compareFn: (a, b) => a.id == b.id,
                         dropdownDecoratorProps: DropDownDecoratorProps(
@@ -437,35 +460,70 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
                     _fileTile('Portfolio', _portfolio, _pickPortfolio),
                     _fileTile('Resume', _resume, _pickResume),
                     const SizedBox(height: 12),
-                    const Text('Certificates',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _certificateController,
-                            decoration: _inputDecoration('Add certificate'),
-                            onFieldSubmitted: (_) => _addCertificate(),
+                    const Text(
+                      'Certificates',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _pickCertificates,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.workspace_premium_outlined,
+                                color: Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _certificates.isEmpty
+                                      ? 'Tap to add certificates'
+                                      : '${_certificates.length} certificate(s) selected',
+                                  style: TextStyle(
+                                    color: _certificates.isEmpty
+                                        ? Colors.grey.shade600
+                                        : Colors.black87,
+                                    fontWeight: _certificates.isEmpty
+                                        ? FontWeight.normal
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.add_circle_outline,
+                                color: Colors.blue.shade600,
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton(
-                          onPressed: _addCertificate,
-                          icon: const Icon(Icons.add_circle),
-                        ),
-                      ],
+                      ),
                     ),
                     if (_certificates.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _certificates.map((c) {
+                        children: _certificates.map((f) {
+                          final name = f.path.split(RegExp(r'[/\\]')).last;
                           return Chip(
-                            label: Text(c),
-                            onDeleted: () => setState(
-                                () => _certificates.remove(c)),
+                            label: Text(
+                              name,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            onDeleted: () => _removeCertificate(f),
                           );
                         }).toList(),
                       ),
@@ -474,10 +532,7 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
                       const SizedBox(height: 12),
                       Text(
                         _errorMessage!,
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 13,
-                        ),
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
                       ),
                     ],
                     const SizedBox(height: 24),
@@ -526,13 +581,8 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 14,
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
     );
   }
 
@@ -565,11 +615,10 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
       child: ListTile(
         title: Text(label),
         subtitle: Text(
-          file != null ? file.path.split(RegExp(r'[/\\]')).last : 'Not selected',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
+          file != null
+              ? file.path.split(RegExp(r'[/\\]')).last
+              : 'Not selected',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         trailing: TextButton(
           onPressed: onTap,

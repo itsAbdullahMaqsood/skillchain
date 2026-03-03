@@ -13,6 +13,8 @@ This document describes how the Skill Chain Flutter app is implemented: architec
 
 The app is a skill-exchange platform: users sign up, log in, browse recommendations, manage offers, use an in-app "timecoin" balance, and chat. Authentication uses access + refresh tokens with silent refresh and secure storage.
 
+### 1.1 Architecture: The project follows Clean Architecture principles, with clear separation between Presentation (UI), Domain (models & core logic), and Data (services, network, storage) layers.
+
 ---
 
 ## 2. Application Entry & Navigation
@@ -112,7 +114,7 @@ The app is a skill-exchange platform: users sign up, log in, browse recommendati
 
 - **UI:** Email and password fields, "Forgot password? Reset it here" button, "Remember me" checkbox, Sign In button. Uses the same visual style as the rest of the app (blue header, white card).
 - **Behavior:**
-  - On Sign In: validates form, calls `LoginApiService().login()`, then `AuthService().persistAuthFromLogin(response)`, then `Navigator.pushReplacement` to `HomeScreen`. Errors are caught as `ApiException` and shown as `_errorMessage` (or a generic message).
+  - On Sign In: validates form, calls `LoginApiService().login()`, then `AuthService().persistAuthFromLogin(response)`, then `Navigator.pushReplacement` to `HomeShell`. Errors are caught as `ApiException` and shown as `_errorMessage` (or a generic message).
   - "Forgot password?" → `Navigator.push` to `ForgotPasswordScreen` (no replacement, so back from forgot-password returns to login).
 
 ---
@@ -154,7 +156,7 @@ The app is a skill-exchange platform: users sign up, log in, browse recommendati
 
 - **SignupEmailPage:** Enter email → `verifyEmail` → on success, `pushReplacement` to **SignupOtpPage(email)**.
 - **SignupOtpPage(email):** Enter OTP → `verifyOtpSignup` → save token with `TokenStorage.saveTempSignupToken(res.token)` → `pushReplacement` to **SignupProfilePage(email, tempToken)**.
-- **SignupProfilePage(email, tempToken):** Full profile form (name, password, phone, age, gender, location, skills, education, experience, profile pic, portfolio, etc.). Uses `TokenStorage` for the temp token; loads skills via API. On submit, calls `SignupApiService().signup(...)` with the temp token and files. On success, saves tokens with `AuthService().persistAuthFromLogin(...)` (or equivalent), clears temp token, then navigates to **HomeScreen**.
+- **SignupProfilePage(email, tempToken):** Full profile form (name, password, phone, age, gender, location, skills, education, experience, profile pic, portfolio, etc.). Uses `TokenStorage` for the temp token; loads skills via API. On submit, calls `SignupApiService().signup(...)` with the temp token and files. On success, saves tokens with `AuthService().persistAuthFromLogin(...)` (or equivalent), clears temp token, then navigates to **HomeShell**.
 
 ---
 
@@ -163,15 +165,21 @@ The app is a skill-exchange platform: users sign up, log in, browse recommendati
 ### 8.1 `lib/Pages/splash_screen.dart`
 
 - Shows logo (SVG), "Skill Chain", "Seamless Skill Exchange", and a loading indicator. Uses a short scale animation.
-- After a 3-second delay: calls `AuthService().initializeAuth()` (restore access token on the shared Dio), then `AuthService().isLoggedIn()`. If logged in → `Navigator.pushReplacement` to **HomeScreen**; otherwise → **LoginScreen**. So returning users with valid tokens skip login.
+- After a 3-second delay: calls `AuthService().initializeAuth()` (restore access token on the shared Dio), then `AuthService().isLoggedIn()`. If logged in → `Navigator.pushReplacement` to **HomeShell**; otherwise → **LoginScreen**. So returning users with valid tokens skip login.
 
 ---
 
 ## 9. Home & Main Features
 
-### 9.1 `lib/Pages/home_page.dart`
+### 9.1 `lib/Pages/home/` (Home Shell, Home Body, New Offer)
 
-- **HomeScreen:** Bottom navigation with multiple tabs (e.g. Home, My Offers, Timecoins, Chat, Profile). Uses a sample `UserModel` and a list of **Recommendation** items. Search filters recommendations by name and skills. Logout uses `Navigator.pushAndRemoveUntil` to `LoginScreen`. Integrates **TimecoinService**, **Recommendation** and **ExchangeType** models.
+- **HomeShell** (`home_shell.dart`): Main scaffold with bottom navigation (Home, Chat, New Offer, Offers, Profile), app bar with search, drawer. Hosts **HomeBodyScreen**, **ChatInboxScreen**, **NewOfferScreen**, **MyOffersScreen**, **ProfileScreen**. Fetches skill posts from `GET /skill-posts` via **SkillPostService** with infinite-scroll pagination (`limit=10`, `offset`). Maintains feed state: `_posts`, `_isLoadingInitial`, `_isFetchingMore`, `_hasMore`, `_offset`, `_feedError`. Sorts posts: `matchesMySkills == true` first, then by `createdAt DESC`. Filters out non-active and expired posts. Supports pull-to-refresh. Search filters posts client-side by name, title, offers, needs.
+- **HomeBodyScreen** (`home_body_screen.dart`): Instagram-style infinite feed. Receives `List<SkillPost>` and feed state from **HomeShell**. Uses `ScrollController` to detect near-bottom and trigger `onFetchMore`. Supports: skeleton loading, bottom loader, error state with retry, empty state, search-no-results state, pull-to-refresh via `RefreshIndicator`. Uses **RecommendationCard** widget (SkillPost extends Recommendation).
+- **SkillPost** (`lib/models/skill_post.dart`): Domain entity extending **Recommendation** with additional post fields (`title`, `description`, `matchesMySkills`, `createdAt`, `expiryDate`, etc.). **SkillPostMapper** converts DTOs → domain. **PaginatedSkillPosts** wraps paginated results.
+- **SkillPostDto** (`lib/models/skill_post_dto.dart`): DTO models for API response parsing: **SkillPostDto**, **RequirementDto**, **SkillRefDto**, **SkillPostUserDto**, **PaginatedSkillPostsDto**. Fully null-safe with fallback defaults.
+- **NewOfferScreen** (`lib/offers/new_offer_screen.dart`): Two-step create post flow. Step 1: Asset selection (I'm offering: SKILL/TIMECOIN, I need: SKILL/TIMECOIN; TIMECOIN→TIMECOIN invalid). Step 2: Post details (title, description, expiry, conditional fields by combination). POST `/skill-posts` via **SkillPostService**. Uses **SignupApiService.getSkills()** for skill multi-select. **CreatePostState** holds persisted form state.
+- **HomeDrawer** (`lib/Widgets/home_drawer.dart`): Drawer with header, stats, menu items (Home, My Offers, Timecoins, Messages, etc.), logout.
+- **RecommendationCard** (`lib/Widgets/recommendation_card.dart`): Card for each recommendation (profile, offers, needs, exchange type, action buttons).
 
 ### 9.2 `lib/models/user.dart`
 
@@ -232,11 +240,12 @@ The app is a skill-exchange platform: users sign up, log in, browse recommendati
 
 ## 11. File & Folder Structure Summary
 
-- **`lib/main.dart`** – Entry, auth callbacks, MaterialApp, `/login` route.
+- **`lib/main.dart`** – Entry, auth callbacks, MaterialApp, `/login` route. Splash and login navigate to **HomeShell**.
 - **`lib/core/network/`** – auth_interceptor.dart, api_exception.dart.
 - **`lib/core/storage/`** – token_storage.dart.
-- **`lib/services/`** – api_service.dart, auth_service.dart, login_api_service.dart, signup_api_service.dart, password_service.dart, timecoin_service.dart.
-- **`lib/models/`** – login_models.dart, signup_models.dart, user.dart, recommendation.dart, myoffer.dart, timecoin.dart, exchange_type.dart.
-- **`lib/Pages/`** – splash_screen.dart, home_page.dart, login/, signup/, forgot password/, profile_page.dart, edit_profile_page.dart, my_offers.dart, timecoin/, chat/.
-- **`lib/Widgets/`** – profile_widgets.dart.
+- **`lib/services/`** – api_service.dart, auth_service.dart, login_api_service.dart, signup_api_service.dart, password_service.dart, timecoin_service.dart, skill_post_service.dart.
+- **`lib/models/`** – login_models.dart, signup_models.dart, create_post_models.dart, skill_post.dart (domain entity + mapper), skill_post_dto.dart (DTOs), user.dart, recommendation.dart, myoffer.dart, timecoin.dart, exchange_type.dart.
+- **`lib/Pages/`** – splash_screen.dart, home/ (home_shell.dart, home_body_screen.dart), settings/ (settings_screen.dart), login/, signup/, forgot password/, profile_page.dart, edit_profile_page.dart, timecoin/, chat/.
+- **`lib/offers/`** – new_offer_screen.dart, open_offers.dart.
+- **`lib/Widgets/`** – profile_widgets.dart, home_drawer.dart, recommendation_card.dart.
 - **`assets/images/`** – e.g. Vector.svg (logo).

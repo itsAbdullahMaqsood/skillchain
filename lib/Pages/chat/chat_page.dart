@@ -398,8 +398,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Sample chat data - in a real app, this would come from a service
   final String _otherUserName = "Sarah Jenkins";
-  final String _otherUserAvatar =
-      "https://i.pravatar.cc/150?img=47"; // Dummy image
+  final String _otherUserAvatar = ""; // Use fallback icon when empty
 
   List<ChatMessage> _messages = [
     ChatMessage(
@@ -570,8 +569,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.grey.shade300,
-                  backgroundImage: NetworkImage(chatUserAvatar),
-                  child: chatUserAvatar.isEmpty
+                  backgroundImage: chatUserAvatar.trim().isNotEmpty
+                      ? NetworkImage(chatUserAvatar)
+                      : null,
+                  child: chatUserAvatar.trim().isEmpty
                       ? const Icon(Icons.person, color: Colors.black)
                       : null,
                 ),

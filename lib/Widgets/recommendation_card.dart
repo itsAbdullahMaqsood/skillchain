@@ -1,16 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:skillchain/core/network/api_exception.dart';
+import 'package:skillchain/models/sent_bid.dart';
 import 'package:skillchain/models/skill_post.dart';
 import 'package:skillchain/Pages/bidding/bid_screen.dart';
+import 'package:skillchain/Pages/offers/sent_bid_detail_screen.dart';
+import 'package:skillchain/Pages/post_detail/post_detail_screen.dart';
+import 'package:skillchain/services/skill_post_service.dart';
 
 class RecommendationCard extends StatelessWidget {
   final SkillPost post;
   final VoidCallback? onBalanceUpdate;
+  final bool showActions;
+  final VoidCallback? onTap;
+  final void Function(String postId, bool hasUserBid)? onBidStatusChanged;
 
   const RecommendationCard({
     super.key,
     required this.post,
     this.onBalanceUpdate,
+    this.showActions = true,
+    this.onTap,
+    this.onBidStatusChanged,
   });
 
   bool get _isOfferSkill => post.offerType.toUpperCase() == 'SKILL';
@@ -19,25 +30,44 @@ class RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
-          const SizedBox(height: 14),
-          _buildTitleDescription(),
-          const SizedBox(height: 14),
-          _buildOffersSection(),
-          const SizedBox(height: 12),
-          _buildNeedsSection(),
-          const SizedBox(height: 16),
-          _buildActionButtons(context),
-        ],
+        onTap:
+            onTap ??
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostDetailScreen(
+                    post: post,
+                    onBalanceUpdate: onBalanceUpdate,
+                    onBidStatusChanged: onBidStatusChanged,
+                  ),
+                ),
+              );
+            },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 14),
+              _buildTitleDescription(),
+              const SizedBox(height: 14),
+              _buildOffersSection(),
+              const SizedBox(height: 12),
+              _buildNeedsSection(),
+              if (showActions) ...[
+                const SizedBox(height: 16),
+                _buildActionButtons(context),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -303,15 +333,6 @@ class RecommendationCard extends StatelessWidget {
             ],
           ),
         ],
-        if (courseOutline != null && courseOutline.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            courseOutline,
-            style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8)),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
       ],
     );
   }
@@ -326,10 +347,46 @@ class RecommendationCard extends StatelessWidget {
     }
     return Row(
       children: [
-        SvgPicture.asset('assets/images/timecoin.svg', width: 18, height: 18),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.amber.shade200, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: SvgPicture.asset(
+                  'assets/images/timecoin.svg',
+                  width: 16,
+                  height: 16,
+                  fit: BoxFit.contain,
+                  placeholderBuilder: (context) => Container(
+                    width: 16,
+                    height: 16,
+                    color: Colors.grey.shade300,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '$timeCoins',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber.shade900,
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(width: 6),
         Text(
-          '$timeCoins TimeCoins',
+          'TimeCoins',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -377,7 +434,71 @@ class RecommendationCard extends StatelessWidget {
   }
 
   // ─── ACTION BUTTONS ───────────────────────────────────────────────
+  Future<void> _viewMyBid(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final bidJson = await SkillPostService().getBidByPostId(postId: post.id);
+      if (!context.mounted) return;
+      Navigator.pop(context); // dismiss loader
+      if (bidJson == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No bid found on this post')),
+        );
+        return;
+      }
+      final sentBid = SentBid.fromPostAndBidJson(post, bidJson);
+      final cancelled = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => SentBidDetailScreen(bid: sentBid)),
+      );
+      if (cancelled == true) {
+        onBidStatusChanged?.call(post.id, false);
+      }
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to load bid details'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Widget _buildActionButtons(BuildContext context) {
+    if (post.hasUserBid!) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _viewMyBid(context),
+          icon: const Icon(Icons.visibility_outlined, size: 18),
+          label: const Text(
+            'View Your Bid',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.teal.shade700,
+            side: BorderSide(color: Colors.teal.shade300),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Row(
       children: [
         Expanded(
@@ -404,11 +525,14 @@ class RecommendationCard extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final placed = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(builder: (_) => BidScreen(post: post)),
               );
+              if (placed == true) {
+                onBidStatusChanged?.call(post.id, true);
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange.shade700,

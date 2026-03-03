@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/Pages/chat/chat_inbox.dart';
 import 'package:skillchain/Pages/login/login_page.dart';
-import 'package:skillchain/offers/open_offers.dart';
+import 'package:skillchain/Pages/offers/open_offers.dart';
 import 'package:skillchain/Pages/profile_page.dart';
 import 'package:skillchain/Pages/timecoin/timecoin_screen.dart';
 import 'package:skillchain/Pages/home/home_body_screen.dart';
-import 'package:skillchain/offers/new_offer_screen.dart';
+import 'package:skillchain/Pages/offers/new_offer_screen.dart';
 import 'package:skillchain/Widgets/home_drawer.dart';
 import 'package:skillchain/models/user.dart';
 import 'package:skillchain/models/skill_post.dart';
+import 'package:skillchain/services/auth_service.dart';
 import 'package:skillchain/services/timecoin_service.dart';
 import 'package:skillchain/services/skill_post_service.dart';
 
@@ -41,41 +42,35 @@ class _HomeShellState extends State<HomeShell> {
   static const int _pageLimit = 10;
   static const String _feedStatus = 'active';
 
-  final UserModel _sampleUser = UserModel(
-    id: '1',
-    fullName: 'Abu Bakar',
-    email: 'AbuBakar@example.com',
-    password: 'hashed_password_here',
-    age: 28,
-    gender: 'Male',
-    location: 'New York, USA',
-    phoneNumber: '+1234567890',
-    portfolioLink: 'https://portfolio.abu-bakar.com',
-    verified: true,
-    bio: 'Passionate developer and skill exchange enthusiast',
-    profilePic: 'https://i.pravatar.cc/150?img=68',
-    education: 'BS Computer Science',
-    offeringSkills: ['Flutter', 'Dart', 'UI/UX Design'],
-    pastExperience: '5 years of experience in mobile app development',
-    timeCoins: 50,
-    subscriptionPackage: 'Premium',
-    ratings: 4.8,
-    status: 'active',
-    username: 'AbuBakar',
-    posts: 12,
-    donations: 5,
-    connections: 24,
-    linkedin: 'linkedin.com/in/AbuBakar',
-    github: 'github.com/AbuBakar',
-    twitter: '@AbuBakar',
-  );
-
+  UserModel? _currentUser;
   final Map<String, SkillPost> _postsById = {};
+  final AuthService _authService = AuthService();
+
+  UserModel get _userForDrawer =>
+      _currentUser ??
+      UserModel(
+        id: '',
+        fullName: 'Loading...',
+        email: '',
+        password: '',
+        age: 0,
+        gender: '',
+        location: '',
+        phoneNumber: '',
+        portfolioLink: '',
+        verified: false,
+      );
 
   @override
   void initState() {
     super.initState();
     _fetchPosts(isInitial: true);
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await _authService.getCurrentUser();
+    if (mounted) setState(() => _currentUser = user);
   }
 
   Future<void> _fetchPosts({bool isInitial = false}) async {
@@ -147,6 +142,16 @@ class _HomeShellState extends State<HomeShell> {
     await _fetchPosts(isInitial: true);
   }
 
+  void _onBidStatusChanged(String postId, bool hasUserBid) {
+    final existing = _postsById[postId];
+    if (existing != null) {
+      _postsById[postId] = existing.copyWith(hasUserBid: hasUserBid);
+      setState(() {
+        _posts = _sortPosts(_postsById.values.toList());
+      });
+    }
+  }
+
   void _onSearchChanged(String value) {
     final trimmed = value.trim();
     if (trimmed == _activeSearch) return;
@@ -190,7 +195,9 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
-  void _logout(BuildContext context) {
+  Future<void> _logout(BuildContext context) async {
+    await AuthService().logout();
+    if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -208,7 +215,7 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7F9),
       drawer: HomeDrawer(
-        user: _sampleUser,
+        user: _userForDrawer,
         timecoinBalance: _timecoinService.getBalance(),
         onSelectTab: (index) {
           setState(() {
@@ -339,6 +346,7 @@ class _HomeShellState extends State<HomeShell> {
           onSearchSubmitted: _onSearchChanged,
           sortMode: _sortMode,
           onSortChanged: _onSortChanged,
+          onBidStatusChanged: _onBidStatusChanged,
         );
       case 1:
         return const ChatInboxScreen();
@@ -347,7 +355,13 @@ class _HomeShellState extends State<HomeShell> {
       case 3:
         return const MyOffersScreen();
       case 4:
-        return ProfileScreen(user: _sampleUser, isCurrentUser: true);
+        return _currentUser == null
+            ? const Center(child: CircularProgressIndicator())
+            : ProfileScreen(
+                user: _currentUser!,
+                isCurrentUser: true,
+                onProfileUpdated: (u) => setState(() => _currentUser = u),
+              );
       default:
         return HomeBodyScreen(
           posts: _posts,
@@ -362,6 +376,7 @@ class _HomeShellState extends State<HomeShell> {
           onSearchSubmitted: _onSearchChanged,
           sortMode: _sortMode,
           onSortChanged: _onSortChanged,
+          onBidStatusChanged: _onBidStatusChanged,
         );
     }
   }

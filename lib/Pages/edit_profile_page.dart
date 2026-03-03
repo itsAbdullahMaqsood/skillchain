@@ -1,5 +1,16 @@
+import 'dart:io';
+
+import 'package:dropdown_search/dropdown_search.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'package:skillchain/core/network/api_exception.dart';
+import 'package:skillchain/models/signup_models.dart';
 import 'package:skillchain/models/user.dart';
+import 'package:skillchain/services/auth_service.dart';
+import 'package:skillchain/services/signup_api_service.dart';
+import 'package:skillchain/services/user_profile_service.dart';
 
 class EditProfilePage extends StatefulWidget {
   final UserModel user;
@@ -16,156 +27,245 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
+  final _profileService = UserProfileService();
+  final _authService = AuthService();
+  final _signupApi = SignupApiService();
+
   late TextEditingController _fullNameController;
-  late TextEditingController _emailController;
   late TextEditingController _phoneNumberController;
   late TextEditingController _locationController;
   late TextEditingController _bioController;
   late TextEditingController _educationController;
   late TextEditingController _pastExperienceController;
-  late TextEditingController _portfolioLinkController;
-  late TextEditingController _resumeController;
   late TextEditingController _ageController;
-  late TextEditingController _usernameController;
-  late TextEditingController _linkedinController;
-  late TextEditingController _githubController;
-  late TextEditingController _twitterController;
 
   String? _selectedGender;
-  String? _profilePicUrl;
-  List<String> _offeringSkills = [];
-  final TextEditingController _skillController = TextEditingController();
+  File? _profilePic;
+  File? _portfolio;
+  File? _resume;
+  List<File> _certificates = [];
+
+  List<SkillItem> _offeringSkills = [];
+  List<SkillItem> _learningSkills = [];
+  List<SkillItem>? _skillsCache;
+  bool _skillsLoading = true;
+  String? _skillsError;
+
+  bool _isSubmitting = false;
+
+  String? get _profileDisplayUrl {
+    if (_profilePic != null) return null; // New file picked
+    return widget.user.profileImageUrl.isNotEmpty
+        ? widget.user.profileImageUrl
+        : null;
+  }
 
   @override
   void initState() {
     super.initState();
     _fullNameController = TextEditingController(text: widget.user.fullName);
-    _emailController = TextEditingController(text: widget.user.email);
     _phoneNumberController = TextEditingController(text: widget.user.phoneNumber);
     _locationController = TextEditingController(text: widget.user.location);
     _bioController = TextEditingController(text: widget.user.bio ?? '');
     _educationController = TextEditingController(text: widget.user.education ?? '');
-    _pastExperienceController = TextEditingController(text: widget.user.pastExperience ?? '');
-    _portfolioLinkController = TextEditingController(text: widget.user.portfolioLink);
-    _resumeController = TextEditingController(text: widget.user.resume ?? '');
+    _pastExperienceController =
+        TextEditingController(text: widget.user.pastExperience ?? '');
     _ageController = TextEditingController(text: widget.user.age.toString());
-    _usernameController = TextEditingController(text: widget.user.username ?? '');
-    _linkedinController = TextEditingController(text: widget.user.linkedin ?? '');
-    _githubController = TextEditingController(text: widget.user.github ?? '');
-    _twitterController = TextEditingController(text: widget.user.twitter ?? '');
-    _selectedGender = widget.user.gender;
-    _profilePicUrl = widget.user.profilePic;
-    _offeringSkills = List.from(widget.user.offeringSkills);
+    _selectedGender = widget.user.gender.isNotEmpty
+        ? widget.user.gender
+        : null;
+
+    _loadSkills();
   }
 
   @override
   void dispose() {
     _fullNameController.dispose();
-    _emailController.dispose();
     _phoneNumberController.dispose();
     _locationController.dispose();
     _bioController.dispose();
     _educationController.dispose();
     _pastExperienceController.dispose();
-    _portfolioLinkController.dispose();
-    _resumeController.dispose();
     _ageController.dispose();
-    _usernameController.dispose();
-    _linkedinController.dispose();
-    _githubController.dispose();
-    _twitterController.dispose();
-    _skillController.dispose();
     super.dispose();
   }
 
-  void _addSkill() {
-    if (_skillController.text.trim().isNotEmpty) {
+  Future<void> _loadSkills() async {
+    if (_skillsCache != null && !_skillsLoading) return;
+    setState(() {
+      _skillsLoading = true;
+      _skillsError = null;
+    });
+    try {
+      final list = await _signupApi.getSkills();
+      final idToSkill = <String, SkillItem>{};
+      for (final s in list) {
+        idToSkill[s.id] = s;
+      }
+      final offering = widget.user.offeringSkills
+          .map((id) => idToSkill[id])
+          .whereType<SkillItem>()
+          .toList();
+      final learning = widget.user.learningSkills
+          .map((id) => idToSkill[id])
+          .whereType<SkillItem>()
+          .toList();
+      if (mounted) {
+        setState(() {
+          _skillsCache = list;
+          _skillsLoading = false;
+          _skillsError = list.isEmpty ? 'No skills available' : null;
+          _offeringSkills = offering;
+          _learningSkills = learning;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _skillsLoading = false;
+          _skillsError = 'Failed to load skills';
+          _skillsCache = [];
+        });
+      }
+    }
+  }
+
+  Future<void> _pickProfileImage() async {
+    final picker = ImagePicker();
+    final x = await picker.pickImage(source: ImageSource.gallery);
+    if (x != null && mounted) {
+      setState(() => _profilePic = File(x.path));
+    }
+  }
+
+  Future<void> _pickPortfolio() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: false,
+    );
+    if (result != null &&
+        result.files.single.path != null &&
+        mounted) {
+      setState(() => _portfolio = File(result.files.single.path!));
+    }
+  }
+
+  Future<void> _pickResume() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: false,
+    );
+    if (result != null &&
+        result.files.single.path != null &&
+        mounted) {
+      setState(() => _resume = File(result.files.single.path!));
+    }
+  }
+
+  Future<void> _pickCertificates() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: true,
+    );
+    if (result != null && result.files.any((f) => f.path != null) && mounted) {
       setState(() {
-        _offeringSkills.add(_skillController.text.trim());
-        _skillController.clear();
+        for (final f in result.files) {
+          if (f.path != null) _certificates.add(File(f.path!));
+        }
       });
     }
   }
 
-  void _removeSkill(String skill) {
-    setState(() {
-      _offeringSkills.remove(skill);
-    });
+  void _removeCertificate(File f) {
+    setState(() => _certificates.remove(f));
   }
 
-  void _saveProfile() {
-    // Validate required fields
-    if (_fullNameController.text.trim().isEmpty ||
-        _emailController.text.trim().isEmpty ||
-        _phoneNumberController.text.trim().isEmpty ||
-        _locationController.text.trim().isEmpty ||
-        _portfolioLinkController.text.trim().isEmpty ||
-        _ageController.text.trim().isEmpty ||
-        _selectedGender == null) {
+  Future<void> _saveProfile() async {
+    final fullName = _fullNameController.text.trim();
+    final phoneNumber = _phoneNumberController.text.trim();
+    final location = _locationController.text.trim();
+    final ageVal = int.tryParse(_ageController.text.trim());
+
+    if (fullName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please fill in all required fields"),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Full name is required'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (phoneNumber.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone number is required'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (location.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location is required'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (ageVal == null || ageVal < 1 || ageVal > 150) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid age (1–150)'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (_selectedGender == null || _selectedGender!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gender is required'), backgroundColor: Colors.red),
       );
       return;
     }
 
-    final age = int.tryParse(_ageController.text.trim());
-    if (age == null || age < 1 || age > 150) {
+    setState(() => _isSubmitting = true);
+
+    try {
+      final userMap = await _profileService.updateProfile(
+        fullName: fullName,
+        bio: _bioController.text.trim(),
+        age: ageVal,
+        gender: _selectedGender!,
+        location: location,
+        phoneNumber: phoneNumber,
+        education: _educationController.text.trim(),
+        offeringSkills: _offeringSkills.map((e) => e.id).toList(),
+        learningSkills: _learningSkills.map((e) => e.id).toList(),
+        pastExperience: _pastExperienceController.text.trim(),
+        profilePic: _profilePic,
+        resume: _resume,
+        portfolio: _portfolio,
+        certificates: _certificates,
+      );
+
+      await _authService.saveUserData(userMap);
+      final updatedUser = UserModel.fromJson(userMap);
+
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      widget.onProfileUpdated(updatedUser);
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Please enter a valid age"),
+          content: Text('Profile updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Something went wrong. Please try again.'),
           backgroundColor: Colors.red,
         ),
       );
-      return;
     }
-
-    // Create updated user
-    final updatedUser = UserModel(
-      id: widget.user.id,
-      fullName: _fullNameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: widget.user.password, // Keep existing password
-      age: age,
-      gender: _selectedGender!,
-      location: _locationController.text.trim(),
-      phoneNumber: _phoneNumberController.text.trim(),
-      portfolioLink: _portfolioLinkController.text.trim(),
-      verified: widget.user.verified,
-      bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
-      profilePic: _profilePicUrl,
-      education: _educationController.text.trim().isEmpty ? null : _educationController.text.trim(),
-      offeringSkills: _offeringSkills,
-      pastExperience: _pastExperienceController.text.trim().isEmpty
-          ? null
-          : _pastExperienceController.text.trim(),
-      resume: _resumeController.text.trim().isEmpty ? null : _resumeController.text.trim(),
-      timeCoins: widget.user.timeCoins,
-      subscriptionPackage: widget.user.subscriptionPackage,
-      ratings: widget.user.ratings,
-      reviews: widget.user.reviews,
-      status: widget.user.status,
-      earnedCertificates: widget.user.earnedCertificates,
-      myOffers: widget.user.myOffers,
-      username: _usernameController.text.trim().isEmpty ? null : _usernameController.text.trim(),
-      posts: widget.user.posts,
-      donations: widget.user.donations,
-      connections: widget.user.connections,
-      linkedin: _linkedinController.text.trim().isEmpty ? null : _linkedinController.text.trim(),
-      github: _githubController.text.trim().isEmpty ? null : _githubController.text.trim(),
-      twitter: _twitterController.text.trim().isEmpty ? null : _twitterController.text.trim(),
-    );
-
-    widget.onProfileUpdated(updatedUser);
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Profile updated successfully!"),
-        backgroundColor: Colors.green,
-      ),
-    );
   }
 
   @override
@@ -173,531 +273,274 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        title: const Text(
-          "Edit Profile",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade600, Colors.purple.shade600],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
             child: TextButton(
-              onPressed: _saveProfile,
-              child: const Text(
-                "Save",
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-              ),
+              onPressed: _isSubmitting ? null : _saveProfile,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.grey.shade50,
-              Colors.white,
-            ],
-          ),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Profile Picture Section
             Center(
-              child: Column(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.blue.shade400,
-                          Colors.purple.shade400,
-                        ],
+              child: GestureDetector(
+                onTap: _pickProfileImage,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.grey.shade300,
+                      backgroundImage: _profilePic != null
+                          ? FileImage(_profilePic!)
+                          : (_profileDisplayUrl != null
+                              ? NetworkImage(_profileDisplayUrl!)
+                              : null),
+                      child: _profilePic == null && _profileDisplayUrl == null
+                          ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                          : null,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
-                    padding: const EdgeInsets.all(4),
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 60,
-                          backgroundColor: Colors.grey.shade300,
-                          backgroundImage: _profilePicUrl != null && _profilePicUrl!.isNotEmpty
-                              ? NetworkImage(_profilePicUrl!)
-                              : null,
-                          child: _profilePicUrl == null || _profilePicUrl!.isEmpty
-                              ? const Icon(Icons.person, size: 60, color: Colors.grey)
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 8,
-                                ),
-                              ],
-                            ),
-                            child: CircleAvatar(
-                              radius: 18,
-                              backgroundColor: Colors.blue.shade600,
-                              child: IconButton(
-                                icon: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
-                                onPressed: () {
-                                  _showImageUrlDialog();
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton.icon(
-                    onPressed: () {
-                      _showImageUrlDialog();
-                    },
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text(
-                      "Change Photo",
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.blue.shade600,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton.icon(
+                onPressed: _pickProfileImage,
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('Change Photo'),
               ),
             ),
             const SizedBox(height: 24),
 
-            // Required Fields Section
-            _buildSectionTitle("Required Information", Icons.info_outline, Colors.blue),
-            const SizedBox(height: 12),
-            _buildTextField(
-              controller: _fullNameController,
-              label: "Full Name *",
-              icon: Icons.person,
-            ),
+            _buildTextField(controller: _fullNameController, label: 'Full Name *', icon: Icons.person),
             const SizedBox(height: 16),
-            _buildTextField(
-              controller: _emailController,
-              label: "Email *",
-              icon: Icons.email,
-              keyboardType: TextInputType.emailAddress,
-            ),
+            _buildReadOnlyField(label: 'Email', value: widget.user.email, icon: Icons.email),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _phoneNumberController,
-              label: "Phone Number *",
+              label: 'Phone Number *',
               icon: Icons.phone,
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),
-            _buildTextField(
-              controller: _locationController,
-              label: "Location *",
-              icon: Icons.location_on,
-            ),
+            _buildTextField(controller: _locationController, label: 'Location *', icon: Icons.location_on),
+            const SizedBox(height: 16),
+            _buildTextField(controller: _bioController, label: 'Bio', icon: Icons.description, maxLines: 3),
+            const SizedBox(height: 16),
+            _buildTextField(controller: _educationController, label: 'Education', icon: Icons.school),
             const SizedBox(height: 16),
             _buildTextField(
-              controller: _portfolioLinkController,
-              label: "Portfolio Link *",
-              icon: Icons.link,
-              keyboardType: TextInputType.url,
+              controller: _pastExperienceController,
+              label: 'Past Experience',
+              icon: Icons.work,
+              maxLines: 3,
             ),
             const SizedBox(height: 16),
+
             Row(
               children: [
                 Expanded(
                   child: _buildTextField(
                     controller: _ageController,
-                    label: "Age *",
-                    icon: Icons.calendar_today,
+                    label: 'Age *',
+                    icon: Icons.cake,
                     keyboardType: TextInputType.number,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedGender,
+                    decoration: InputDecoration(
+                      labelText: 'Gender *',
+                      prefixIcon: Icon(Icons.people, color: Colors.blue.shade600),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedGender,
-                      decoration: InputDecoration(
-                        labelText: "Gender *",
-                        prefixIcon: Icon(Icons.people, color: Colors.blue.shade600),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Male', child: Text('Male')),
-                        DropdownMenuItem(value: 'Female', child: Text('Female')),
-                        DropdownMenuItem(value: 'Other', child: Text('Other')),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedGender = value;
-                        });
-                      },
-                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'male', child: Text('Male')),
+                      DropdownMenuItem(value: 'female', child: Text('Female')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (v) => setState(() => _selectedGender = v),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
 
-            // Optional Fields Section
-            _buildSectionTitle("Additional Information", Icons.description, Colors.purple),
-            const SizedBox(height: 12),
-            _buildTextField(
-              controller: _bioController,
-              label: "Bio",
-              icon: Icons.description,
-              maxLines: 3,
-            ),
+            const Text('Offering Skills', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const SizedBox(height: 8),
+            _skillsLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _skillsError != null
+                    ? Row(
+                        children: [
+                          Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_skillsError!)),
+                          TextButton(onPressed: _loadSkills, child: const Text('Retry')),
+                        ],
+                      )
+                    : DropdownSearch<SkillItem>.multiSelection(
+                        items: _skillsCache ?? [],
+                        selectedItems: _offeringSkills,
+                        onChanged: (v) => setState(() => _offeringSkills = v),
+                        itemAsString: (s) => s.name,
+                        compareFn: (a, b) => a.id == b.id,
+                        dropdownDecoratorProps: DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            hintText: 'Select skills you offer',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: Colors.white,
+                          ),
+                        ),
+                      ),
             const SizedBox(height: 16),
-            _buildTextField(
-              controller: _educationController,
-              label: "Education",
-              icon: Icons.school,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _pastExperienceController,
-              label: "Past Experience",
-              icon: Icons.work,
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _resumeController,
-              label: "Resume Link",
-              icon: Icons.description,
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _usernameController,
-              label: "Username (max 15 chars)",
-              icon: Icons.alternate_email,
-              maxLength: 15,
-            ),
-            const SizedBox(height: 24),
 
-            // Offering Skills Section
-            _buildSectionTitle("Offering Skills", Icons.stars, Colors.orange),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _skillController,
-                      decoration: InputDecoration(
-                        labelText: "Add a skill",
-                        prefixIcon: Icon(Icons.add_circle_outline, color: Colors.blue.shade600),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
-                        ),
+            const Text('Learning Skills', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const SizedBox(height: 8),
+            _skillsLoading
+                ? const SizedBox.shrink()
+                : DropdownSearch<SkillItem>.multiSelection(
+                    items: _skillsCache ?? [],
+                    selectedItems: _learningSkills,
+                    onChanged: (v) => setState(() => _learningSkills = v),
+                    itemAsString: (s) => s.name,
+                    compareFn: (a, b) => a.id == b.id,
+                    dropdownDecoratorProps: DropDownDecoratorProps(
+                      dropdownSearchDecoration: InputDecoration(
+                        hintText: 'Select skills you want to learn',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         filled: true,
                         fillColor: Colors.white,
                       ),
-                      onSubmitted: (_) => _addSkill(),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
+            const SizedBox(height: 24),
+
+            _fileTile('Portfolio', _portfolio, _pickPortfolio),
+            const SizedBox(height: 12),
+            _fileTile('Resume', _resume, _pickResume),
+            const SizedBox(height: 16),
+            const Text('Certificates', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const SizedBox(height: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _pickCertificates,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.blue.shade600, Colors.purple.shade600],
-                    ),
+                    border: Border.all(color: Colors.grey.shade300),
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.workspace_premium_outlined, color: Colors.grey.shade600),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _certificates.isEmpty
+                              ? 'Tap to add certificates'
+                              : '${_certificates.length} certificate(s) selected',
+                          style: TextStyle(
+                            color: _certificates.isEmpty ? Colors.grey.shade600 : Colors.black87,
+                            fontWeight: _certificates.isEmpty ? FontWeight.normal : FontWeight.w500,
+                          ),
+                        ),
                       ),
+                      Icon(Icons.add_circle_outline, color: Colors.blue.shade600),
                     ],
                   ),
-                  child: IconButton(
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    onPressed: _addSkill,
-                  ),
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            if (_offeringSkills.isNotEmpty)
+            if (_certificates.isNotEmpty) ...[
+              const SizedBox(height: 8),
               Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: _offeringSkills.map((skill) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.blue.shade400,
-                          Colors.purple.shade400,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          skill,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        GestureDetector(
-                          onTap: () => _removeSkill(skill),
-                          child: const Icon(
-                            Icons.close,
-                            size: 18,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
+                spacing: 8,
+                runSpacing: 8,
+                children: _certificates.map((f) {
+                  final name = f.path.split(RegExp(r'[/\\]')).last;
+                  return Chip(
+                    label: Text(name, overflow: TextOverflow.ellipsis, maxLines: 1),
+                    onDeleted: () => _removeCertificate(f),
                   );
                 }).toList(),
               ),
+            ],
             const SizedBox(height: 24),
 
-            // Social Links Section
-            _buildSectionTitle("Social Links", Icons.share, Colors.green),
-            const SizedBox(height: 12),
-            _buildTextField(
-              controller: _linkedinController,
-              label: "LinkedIn",
-              icon: Icons.business,
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _githubController,
-              label: "GitHub",
-              icon: Icons.code,
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 16),
-            _buildTextField(
-              controller: _twitterController,
-              label: "Twitter",
-              icon: Icons.alternate_email,
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 32),
-
-            // Save Button
-            Container(
+            SizedBox(
               width: double.infinity,
               height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.blue.shade600,
-                    Colors.purple.shade600,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.4),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
               child: ElevatedButton(
-                onPressed: _saveProfile,
+                onPressed: _isSubmitting ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  backgroundColor: Colors.blue.shade600,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text(
-                  "Save Changes",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
               ),
             ),
-            const SizedBox(height: 16),
           ],
-        ),
         ),
       ),
     );
   }
 
-  void _showImageUrlDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final urlController = TextEditingController(text: _profilePicUrl ?? '');
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.camera_alt, color: Colors.blue.shade600),
-              const SizedBox(width: 8),
-              const Text("Update Profile Picture"),
-            ],
-          ),
-          content: TextField(
-            controller: urlController,
-            decoration: InputDecoration(
-              hintText: "Enter image URL",
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _profilePicUrl = urlController.text.trim().isEmpty
-                      ? null
-                      : urlController.text.trim();
-                });
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade600,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text("Update"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSectionTitle(String title, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-            ),
-          ),
-        ],
+  Widget _buildReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.grey.shade600),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.grey.shade100,
       ),
+      child: Text(value, style: TextStyle(color: Colors.grey.shade700)),
     );
   }
 
@@ -706,45 +549,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
-    int? maxLines,
-    int? maxLength,
+    int maxLines = 1,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.blue.shade600),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.white,
       ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        maxLines: maxLines ?? 1,
-        maxLength: maxLength,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: Colors.blue.shade600),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+    );
+  }
+
+  Widget _fileTile(String label, File? file, VoidCallback onPick) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPick,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+          child: Row(
+            children: [
+              Icon(Icons.attach_file, color: Colors.grey.shade600),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  file != null ? file.path.split(RegExp(r'[/\\]')).last : 'Tap to select $label',
+                  style: TextStyle(
+                    color: file != null ? Colors.black87 : Colors.grey.shade600,
+                    fontWeight: file != null ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade500),
+            ],
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
-          ),
-          filled: true,
-          fillColor: Colors.white,
         ),
       ),
     );
   }
 }
-

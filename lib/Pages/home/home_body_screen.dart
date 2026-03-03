@@ -16,6 +16,7 @@ class HomeBodyScreen extends StatefulWidget {
   final ValueChanged<String> onSearchSubmitted;
   final SortMode sortMode;
   final ValueChanged<SortMode> onSortChanged;
+  final void Function(String postId, bool hasUserBid)? onBidStatusChanged;
 
   const HomeBodyScreen({
     super.key,
@@ -31,6 +32,7 @@ class HomeBodyScreen extends StatefulWidget {
     required this.onSearchSubmitted,
     required this.sortMode,
     required this.onSortChanged,
+    this.onBidStatusChanged,
   });
 
   @override
@@ -289,6 +291,7 @@ class _HomeBodyScreenState extends State<HomeBodyScreen> {
                 child: RecommendationCard(
                   post: post,
                   onBalanceUpdate: widget.onBalanceUpdate,
+                  onBidStatusChanged: widget.onBidStatusChanged,
                 ),
               );
             }

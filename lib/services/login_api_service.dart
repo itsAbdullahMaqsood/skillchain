@@ -44,4 +44,20 @@ class LoginApiService {
       throw _fromDio(e);
     }
   }
+
+  /// POST /users/auth/google - Exchange Google ID token for user + JWT
+  Future<LoginSuccessResponse> loginWithGoogle({required String idToken}) async {
+    try {
+      final res = await _api.post(
+        '/users/auth/google',
+        data: {'id_token': idToken},
+      );
+      final map = res.data is Map<String, dynamic>
+          ? res.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      return LoginSuccessResponse.fromJson(map);
+    } on DioException catch (e) {
+      throw _fromDio(e);
+    }
+  }
 }

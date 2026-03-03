@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:skillchain/models/login_models.dart';
+import 'package:skillchain/models/user.dart';
 import 'package:skillchain/services/api_service.dart';
 
 class AuthService {
@@ -295,6 +296,18 @@ class AuthService {
     if (token != null) {
       _apiService.setAuthToken(token);
     }
+  }
+
+  /// Current user as [UserModel], from storage (set after login).
+  Future<UserModel?> getCurrentUser() async {
+    final map = await getStoredUserData();
+    if (map == null || map.isEmpty) return null;
+    return UserModel.fromJson(map);
+  }
+
+  /// Persist updated user data (e.g. after profile update).
+  Future<void> saveUserData(Map<String, dynamic> user) async {
+    await _storage.write(key: _userDataKey, value: jsonEncode(user));
   }
 
   /// Current user data from storage (set after login via [persistAuthFromLogin]).

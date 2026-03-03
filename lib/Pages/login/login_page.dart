@@ -1,10 +1,14 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/core/network/api_exception.dart';
 import 'package:skillchain/Pages/forgot%20password/forgot_password_screen.dart';
 import 'package:skillchain/Pages/home/home_shell.dart';
 import 'package:skillchain/Pages/signup/signup_email_page.dart';
 import 'package:skillchain/services/auth_service.dart';
+import 'package:skillchain/services/google_sign_in_service.dart';
 import 'package:skillchain/services/login_api_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -18,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
   final _loginApi = LoginApiService();
+  final _googleSignIn = GoogleSignInService();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -25,6 +30,70 @@ class _LoginScreenState extends State<LoginScreen> {
   bool obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;
+
+  /// DEBUG: Shows id_token in a popup with Copy button for Swagger testing.
+  static Future<bool> _showIdTokenDialog(BuildContext context, String idToken) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Google ID Token (for Swagger)'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SelectableText(
+                idToken,
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: idToken));
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard')),
+                      );
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    ).then((v) => v ?? false);
+  }
+
+  /// Maps common Google Sign-In platform error codes to user-friendly messages.
+  static String? _platformErrorToMessage(String code) {
+    switch (code) {
+      case 'sign_in_failed':
+        return 'Google sign-in failed. Check that SHA-1 is added to your Android OAuth client in Google Cloud.';
+      case '10':
+        return 'Configuration error: Add SHA-1 to Google Cloud Console for this app.';
+      case '12501':
+        return 'Sign-in was cancelled.';
+      case '7':
+        return 'No network connection.';
+      default:
+        return null;
+    }
+  }
 
   @override
   void dispose() {
@@ -62,6 +131,61 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Something went wrong. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    _errorMessage = null;
+    setState(() => _isLoading = true);
+
+    try {
+      final idToken = await _googleSignIn.signInAndGetIdToken();
+      if (!mounted) return;
+      if (idToken == null) {
+        setState(() => _isLoading = false);
+        return; // User cancelled, no error
+      }
+
+      // DEBUG: Show id_token popup for Swagger testing (remove in production)
+      final proceed = await _showIdTokenDialog(context, idToken);
+      if (!mounted) return;
+      if (!proceed) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final response = await _loginApi.loginWithGoogle(idToken: idToken);
+      await _authService.persistAuthFromLogin(response);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeShell()),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.message;
+      });
+    } on PlatformException catch (e) {
+      developer.log(
+        'Google sign-in PlatformException: ${e.code} - ${e.message}',
+      );
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage =
+            _platformErrorToMessage(e.code) ?? e.message ?? 'Sign-in failed.';
+      });
+    } catch (e, st) {
+      developer.log('Google sign-in error: $e', stackTrace: st);
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage =
+            'Google sign-in failed. Please try again. (Check console for details)';
       });
     }
   }
@@ -316,14 +440,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 16),
 
-                        /// Social Login
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _socialButton('assets/images/google.svg'),
-                            const SizedBox(width: 16),
-                            _socialButton('assets/images/facebook.svg'),
-                          ],
+                        /// Google Sign In
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _handleGoogleSignIn,
+                            icon: SvgPicture.asset(
+                              'assets/images/google.svg',
+                              width: 20,
+                              height: 20,
+                            ),
+                            label: const Text('Sign in with Google'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                          ),
                         ),
 
                         const SizedBox(height: 16),
@@ -361,17 +496,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _socialButton(String assetPath) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: SvgPicture.asset(assetPath, width: 30, height: 30),
     );
   }
 }

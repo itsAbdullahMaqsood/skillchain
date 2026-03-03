@@ -13,6 +13,7 @@ class SkillPostDto {
   final SkillPostUserDto? user;
   final RequirementDto? offer;
   final RequirementDto? request;
+  final bool hasUserBid;
 
   SkillPostDto({
     required this.id,
@@ -27,6 +28,7 @@ class SkillPostDto {
     this.user,
     this.offer,
     this.request,
+    this.hasUserBid = false,
   });
 
   factory SkillPostDto.fromJson(Map<String, dynamic> json) {
@@ -43,6 +45,7 @@ class SkillPostDto {
       requestType:
           (json['request_type'] ?? json['requestType'] ?? '').toString(),
       matchesMySkills: json['matchesMySkills'] == true,
+      hasUserBid: json['has_user_bid'] == true,
       createdAt: _parseDate(json['createdAt'] ?? json['created_at']),
       expiryDate: _parseDate(json['expiryDate'] ?? json['expiry_date']),
       user: _parseUser(json),

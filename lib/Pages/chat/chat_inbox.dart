@@ -40,7 +40,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       id: '1',
       userId: 'user1',
       userName: 'Sarah Jenkins',
-      userAvatar: 'https://i.pravatar.cc/150?img=47',
+      userAvatar: '',
       lastMessage: 'Yes, Saturday afternoon works perfectly for me!',
       lastMessageTime: DateTime.now().subtract(const Duration(minutes: 15)),
       isOnline: true,
@@ -51,7 +51,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       id: '2',
       userId: 'user2',
       userName: 'David Chen',
-      userAvatar: 'https://i.pravatar.cc/150?img=12',
+      userAvatar: '',
       lastMessage: 'I can help you with React. When are you available?',
       lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
       isOnline: false,
@@ -62,7 +62,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       id: '3',
       userId: 'user3',
       userName: 'Elena Rodriguez',
-      userAvatar: 'https://i.pravatar.cc/150?img=33',
+      userAvatar: '',
       lastMessage: 'Thanks for the session! It was really helpful.',
       lastMessageTime: DateTime.now().subtract(const Duration(hours: 5)),
       isOnline: true,
@@ -73,7 +73,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       id: '4',
       userId: 'user4',
       userName: 'Michael Thompson',
-      userAvatar: 'https://i.pravatar.cc/150?img=20',
+      userAvatar: '',
       lastMessage: 'Looking forward to our skill exchange session!',
       lastMessageTime: DateTime.now().subtract(const Duration(days: 1)),
       isOnline: false,
@@ -84,7 +84,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       id: '5',
       userId: 'user5',
       userName: 'Alex Johnson',
-      userAvatar: 'https://i.pravatar.cc/150?img=51',
+      userAvatar: '',
       lastMessage: 'Can we schedule for next week?',
       lastMessageTime: DateTime.now().subtract(const Duration(days: 2)),
       isOnline: false,
@@ -216,8 +216,10 @@ class _ConversationTile extends StatelessWidget {
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: Colors.grey.shade300,
-                  backgroundImage: NetworkImage(conversation.userAvatar),
-                  child: conversation.userAvatar.isEmpty
+                  backgroundImage: conversation.userAvatar.trim().isNotEmpty
+                      ? NetworkImage(conversation.userAvatar)
+                      : null,
+                  child: conversation.userAvatar.trim().isEmpty
                       ? const Icon(Icons.person, color: Colors.black)
                       : null,
                 ),

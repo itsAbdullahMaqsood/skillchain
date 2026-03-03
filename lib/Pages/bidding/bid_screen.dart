@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:skillchain/core/network/api_exception.dart';
 import 'package:skillchain/models/skill_post.dart';
+import 'package:skillchain/services/skill_post_service.dart';
 
 class BidScreen extends StatefulWidget {
   final SkillPost post;
@@ -419,54 +421,66 @@ class _BidScreenState extends State<BidScreen> {
     );
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
 
     final payload = _buildPayload();
 
-    // TODO: Replace with actual API call when bidding endpoint is ready
-    debugPrint('[BidScreen] payload=$payload');
+    try {
+      final result = await SkillPostService().placeBid(
+        postId: widget.post.id,
+        payload: payload,
+      );
 
-    Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
+
+      final msg = (result['message'] as String?) ?? 'Bid placed successfully';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.green),
+      );
+      Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bid submitted successfully!'),
-          backgroundColor: Colors.green,
+          content: Text('Something went wrong. Please try again.'),
+          backgroundColor: Colors.red,
         ),
       );
-      Navigator.pop(context);
-    });
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Map<String, dynamic> _buildPayload() {
-    final post = widget.post;
-    final payload = <String, dynamic>{
-      'post_id': post.id,
-    };
-
-    if (_isSkillExchange) {
-      payload['proposed_offer_duration'] =
-          int.tryParse(_offerDurationController.text) ?? 0;
-      payload['proposed_request_duration'] =
-          int.tryParse(_requestDurationController.text) ?? 0;
-    } else if (_isOfferSkill) {
-      payload['proposed_offer_duration'] =
-          int.tryParse(_offerDurationController.text) ?? 0;
-      payload['proposed_time_coins'] =
-          int.tryParse(_timeCoinsController.text) ?? 0;
-    } else {
-      payload['proposed_time_coins'] =
-          int.tryParse(_timeCoinsController.text) ?? 0;
-      payload['proposed_request_duration'] =
-          int.tryParse(_requestDurationController.text) ?? 0;
-    }
+    final payload = <String, dynamic>{};
 
     final msg = _messageController.text.trim();
     if (msg.isNotEmpty) payload['message'] = msg;
+
+    if (_isSkillExchange) {
+      payload['proposed_timeline'] =
+          int.tryParse(_offerDurationController.text) ?? 0;
+      payload['course_timeline'] =
+          int.tryParse(_requestDurationController.text) ?? 0;
+    } else if (_isOfferSkill) {
+      payload['proposed_timeline'] =
+          int.tryParse(_offerDurationController.text) ?? 0;
+      payload['suggested_time_coins'] =
+          int.tryParse(_timeCoinsController.text) ?? 0;
+    } else {
+      payload['suggested_time_coins'] =
+          int.tryParse(_timeCoinsController.text) ?? 0;
+      payload['course_timeline'] =
+          int.tryParse(_requestDurationController.text) ?? 0;
+    }
 
     return payload;
   }

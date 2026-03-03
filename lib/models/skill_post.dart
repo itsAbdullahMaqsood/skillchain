@@ -20,6 +20,7 @@ class SkillPost extends Recommendation {
   final String? courseOutline;
   final String? offerGoals;
   final String? requestGoals;
+  final bool? hasUserBid;
 
   SkillPost({
     required super.id,
@@ -49,7 +50,41 @@ class SkillPost extends Recommendation {
     this.courseOutline,
     this.offerGoals,
     this.requestGoals,
+    this.hasUserBid = false,
   });
+
+  SkillPost copyWith({bool? hasUserBid}) {
+    return SkillPost(
+      id: id,
+      name: name,
+      profileImage: profileImage,
+      isVerified: isVerified,
+      rating: rating,
+      status: status,
+      matchPercentage: matchPercentage,
+      isTopRated: isTopRated,
+      offers: offers,
+      needs: needs,
+      exchangeType: exchangeType,
+      timecoinCost: timecoinCost,
+      title: title,
+      description: description,
+      postStatus: postStatus,
+      offerType: offerType,
+      requestType: requestType,
+      matchesMySkills: matchesMySkills,
+      createdAt: createdAt,
+      expiryDate: expiryDate,
+      offerTimeCoins: offerTimeCoins,
+      requestTimeCoins: requestTimeCoins,
+      courseTotalMinutes: courseTotalMinutes,
+      desiredDurationMinutes: desiredDurationMinutes,
+      courseOutline: courseOutline,
+      offerGoals: offerGoals,
+      requestGoals: requestGoals,
+      hasUserBid: hasUserBid ?? this.hasUserBid,
+    );
+  }
 
   bool get isExpired =>
       expiryDate != null && expiryDate!.isBefore(DateTime.now());
@@ -81,17 +116,16 @@ class SkillPostMapper {
 
     final offerSkills =
         offer?.skills.map((s) => s.name).where((n) => n.isNotEmpty).toList() ??
-            [];
-    final requestSkills = request?.skills
+        [];
+    final requestSkills =
+        request?.skills
             .map((s) => s.name)
             .where((n) => n.isNotEmpty)
             .toList() ??
         [];
 
-    final isTimecoinOffer =
-        dto.offerType.toUpperCase() == 'TIMECOIN';
-    final isTimecoinRequest =
-        dto.requestType.toUpperCase() == 'TIMECOIN';
+    final isTimecoinOffer = dto.offerType.toUpperCase() == 'TIMECOIN';
+    final isTimecoinRequest = dto.requestType.toUpperCase() == 'TIMECOIN';
 
     ExchangeType exchangeType;
     int? timecoinCost;
@@ -130,6 +164,7 @@ class SkillPostMapper {
       courseOutline: offer?.courseOutline,
       offerGoals: offer?.goals,
       requestGoals: request?.goals,
+      hasUserBid: dto.hasUserBid,
     );
   }
 

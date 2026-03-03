@@ -56,15 +56,15 @@ class HomeDrawer extends StatelessWidget {
                       CircleAvatar(
                         radius: 35,
                         backgroundColor: Colors.white,
-                        backgroundImage:
-                            (user.profilePic != null &&
-                                user.profilePic!.isNotEmpty)
-                            ? NetworkImage(user.profilePic!)
+                        backgroundImage: user.profileImageUrl.isNotEmpty
+                            ? NetworkImage(user.profileImageUrl)
                             : null,
-                        child:
-                            (user.profilePic == null ||
-                                user.profilePic!.isEmpty)
-                            ? Icon(Icons.person, size: 40, color: Colors.grey)
+                        child: user.profileImageUrl.isEmpty
+                            ? const Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Colors.grey,
+                              )
                             : null,
                       ),
                       const SizedBox(width: 16),

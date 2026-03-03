@@ -129,6 +129,28 @@ class ApiService {
     }
   }
 
+  /// PUT with multipart/form-data (e.g. file uploads). [data] is FormData.
+  Future<Response> putMultipart(
+    String path, {
+    required FormData data,
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      return await _dio.put(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Set authorization token on the shared Dio (used after login/refresh).
   void setAuthToken(String? token) {
     if (token != null) {
