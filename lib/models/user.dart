@@ -6,6 +6,19 @@ String? _str(dynamic v) {
   return s.isEmpty ? null : s;
 }
 
+/// Extracts display name from skill - supports {id, name} objects or plain strings.
+String _skillToDisplayName(dynamic e) {
+  if (e == null) return '';
+  if (e is Map) {
+    final name = e['name'] ?? e['Name'];
+    if (name != null && name.toString().trim().isNotEmpty) {
+      return name.toString().trim();
+    }
+  }
+  if (e is String) return e.trim();
+  return '';
+}
+
 class UserModel {
   // Required fields (*)
   final String id;
@@ -106,11 +119,11 @@ class UserModel {
 
     final offeringRaw = json['offeringSkills'] ?? json['offering_skills'] ?? [];
     final offeringSkills = offeringRaw is List
-        ? offeringRaw.map((e) => e.toString()).toList()
+        ? offeringRaw.map(_skillToDisplayName).where((s) => s.isNotEmpty).toList()
         : <String>[];
     final learningRaw = json['learningSkills'] ?? json['learning_skills'] ?? [];
     final learningSkills = learningRaw is List
-        ? learningRaw.map((e) => e.toString()).toList()
+        ? learningRaw.map(_skillToDisplayName).where((s) => s.isNotEmpty).toList()
         : <String>[];
 
     final certsRaw = json['earnedCertificates'] ?? json['earned_certificates'] ?? [];

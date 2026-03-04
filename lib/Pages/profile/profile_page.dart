@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:skillchain/models/user.dart';
 import 'package:skillchain/Widgets/profile_widgets.dart';
-import 'package:skillchain/Pages/edit_profile_page.dart';
+import 'package:skillchain/Pages/profile/edit_profile_page.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserModel user;

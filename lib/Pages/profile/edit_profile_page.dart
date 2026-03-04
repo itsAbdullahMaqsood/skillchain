@@ -99,15 +99,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       final list = await _signupApi.getSkills();
       final idToSkill = <String, SkillItem>{};
+      final nameToSkill = <String, SkillItem>{};
       for (final s in list) {
         idToSkill[s.id] = s;
+        nameToSkill[s.name] = s;
       }
       final offering = widget.user.offeringSkills
-          .map((id) => idToSkill[id])
+          .map((val) => idToSkill[val] ?? nameToSkill[val])
           .whereType<SkillItem>()
           .toList();
       final learning = widget.user.learningSkills
-          .map((id) => idToSkill[id])
+          .map((val) => idToSkill[val] ?? nameToSkill[val])
           .whereType<SkillItem>()
           .toList();
       if (mounted) {

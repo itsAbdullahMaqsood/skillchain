@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:skillchain/models/login_models.dart';
+import 'package:skillchain/models/signup_models.dart';
 import 'package:skillchain/models/user.dart';
 import 'package:skillchain/services/api_service.dart';
 
@@ -284,6 +285,14 @@ class AuthService {
 
   /// Persist tokens and user data after login. Sets API auth header.
   Future<void> persistAuthFromLogin(LoginSuccessResponse response) async {
+    await _storage.write(key: _accessTokenKey, value: response.accessToken);
+    await _storage.write(key: _refreshTokenKey, value: response.refreshToken);
+    await _storage.write(key: _userDataKey, value: jsonEncode(response.user));
+    _apiService.setAuthToken(response.accessToken);
+  }
+
+  /// Persist tokens and user data after signup. Sets API auth header.
+  Future<void> persistAuthFromSignup(SignupSuccessResponse response) async {
     await _storage.write(key: _accessTokenKey, value: response.accessToken);
     await _storage.write(key: _refreshTokenKey, value: response.refreshToken);
     await _storage.write(key: _userDataKey, value: jsonEncode(response.user));

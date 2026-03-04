@@ -31,54 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  /// DEBUG: Shows id_token in a popup with Copy button for Swagger testing.
-  static Future<bool> _showIdTokenDialog(BuildContext context, String idToken) async {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Google ID Token (for Swagger)'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SelectableText(
-                idToken,
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: idToken));
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard')),
-                      );
-                    },
-                    icon: const Icon(Icons.copy, size: 18),
-                    label: const Text('Copy'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    ).then((v) => v ?? false);
-  }
-
   /// Maps common Google Sign-In platform error codes to user-friendly messages.
   static String? _platformErrorToMessage(String code) {
     switch (code) {
@@ -147,13 +99,8 @@ class _LoginScreenState extends State<LoginScreen> {
         return; // User cancelled, no error
       }
 
-      // DEBUG: Show id_token popup for Swagger testing (remove in production)
-      final proceed = await _showIdTokenDialog(context, idToken);
-      if (!mounted) return;
-      if (!proceed) {
-        setState(() => _isLoading = false);
-        return;
-      }
+      // TEMP: Log Google id_token to console for debugging
+      developer.log('Google id_token: $idToken');
 
       final response = await _loginApi.loginWithGoogle(idToken: idToken);
       await _authService.persistAuthFromLogin(response);

@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:skillchain/Pages/chat/chat_inbox.dart';
 import 'package:skillchain/Pages/login/login_page.dart';
 import 'package:skillchain/Pages/offers/open_offers.dart';
-import 'package:skillchain/Pages/profile_page.dart';
+import 'package:skillchain/Pages/profile/profile_page.dart';
 import 'package:skillchain/Pages/timecoin/timecoin_screen.dart';
 import 'package:skillchain/Pages/home/home_body_screen.dart';
 import 'package:skillchain/Pages/offers/new_offer_screen.dart';

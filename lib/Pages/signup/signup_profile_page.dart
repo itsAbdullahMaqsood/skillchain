@@ -234,10 +234,7 @@ class _SignupProfilePageState extends State<SignupProfilePage> {
         certificate: _certificates,
       );
 
-      await _authService.persistAuthTokens(
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-      );
+      await _authService.persistAuthFromSignup(res);
       await _tokenStorage.clearTempSignupToken();
 
       if (!mounted) return;
