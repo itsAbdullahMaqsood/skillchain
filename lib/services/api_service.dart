@@ -6,18 +6,7 @@ import 'package:skillchain/core/network/auth_interceptor.dart';
 
 class ApiService {
   // PRODUCTION API URL
-  // Replace this with your deployed backend URL after deploying to a cloud service
-  // Examples:
-  // - Railway: 'https://your-app.railway.app/api'
-  // - Render: 'https://your-app.onrender.com/api'
-  // - Heroku: 'https://your-app.herokuapp.com/api'
-  // - Custom Domain: 'https://api.yourdomain.com/api'
-  //
-  // For local development/testing on same network:
-  // Use your computer's local IP: 'https://192.168.1.100:3001/api'
-  //
-  // IMPORTANT: After deploying your backend, update this URL and rebuild the APK
-  static const String baseUrl = 'http://13.50.109.48:3001';
+  static const String baseUrl = 'https://skill-chain-backend.lgufyp.app';
 
   static Dio? _sharedDio;
   static Dio get _dio {
